@@ -8,6 +8,20 @@
       "when": 1786466902386,
       "tag": "0000_eminent_tyger_tiger",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1786556137223,
+      "tag": "0001_patient_management",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1786558719555,
+      "tag": "0002_globalize_shared_lists",
+      "breakpoints": true
     }
   ]
 }

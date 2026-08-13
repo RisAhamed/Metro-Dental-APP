@@ -44,3 +44,25 @@ export function isStaff(claims: unknown): boolean {
     'RECEPTIONIST',
   ].includes(normalize(claims)?.role || '');
 }
+
+// Can view and create patients (receptionists included)
+export function canManagePatients(claims: unknown): boolean {
+  return [
+    'SUPER_ADMIN',
+    'CLINIC_ADMIN',
+    'GENERAL_DOCTOR',
+    'ASSISTANT_DOCTOR',
+    'RECEPTIONIST',
+  ].includes(normalize(claims)?.role || '');
+}
+
+// Can view and manage shared lookup lists (referrals, medical conditions, groups)
+export function canManageLookups(claims: unknown): boolean {
+  return [
+    'SUPER_ADMIN',
+    'CLINIC_ADMIN',
+    'GENERAL_DOCTOR',
+    'ASSISTANT_DOCTOR',
+    'RECEPTIONIST',
+  ].includes(normalize(claims)?.role || '');
+}

@@ -18,9 +18,10 @@ import {
   ClipboardList,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import type { LucideIcon } from 'lucide-react';
 
 // Role-based menus (hardcoded)
-const ROLE_MENUS: Record<string, { label: string; href: string; icon: any }[]> = {
+const ROLE_MENUS: Record<string, { label: string; href: string; icon: LucideIcon }[]> = {
   SUPER_ADMIN: [
     { label: 'Dashboard', href: '/admin', icon: LayoutDashboard },
     { label: 'Calendar', href: '/calendar', icon: Calendar },

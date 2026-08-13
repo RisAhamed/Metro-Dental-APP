@@ -65,7 +65,7 @@ import { users } from '@/lib/db/schema/users';
 import { isSuperAdmin } from '@/lib/auth/claims';
 
 export async function POST(req: NextRequest) {
-  const { sessionClaims } = await auth();
+  const { sessionClaims, userId } = await auth();
   if (!isSuperAdmin(sessionClaims)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
   }
@@ -94,7 +94,8 @@ export async function POST(req: NextRequest) {
     const tempPwd = `Dc${Math.random().toString(36).slice(-6)}1!`;
 
     // Create user in Clerk with full error handling
-    const clerkUser = await clerkClient.users.createUser({
+    const client = await clerkClient();
+    const clerkUser = await client.users.createUser({
       emailAddress: [email],
       password: tempPwd,
       firstName: name.split(' ')[0],
@@ -116,7 +117,7 @@ export async function POST(req: NextRequest) {
       primaryClinicId: primaryClinicId || clinicIds[0],
       clinicIds,
       isActive: true,
-      createdBy: sessionClaims?.userId || 'system',
+      createdBy: userId || 'system',
     });
 
     return NextResponse.json({
@@ -124,15 +125,16 @@ export async function POST(req: NextRequest) {
       tempPassword: tempPwd,
       message: 'User created successfully',
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const err = error as { message?: string; errors?: unknown };
     // Log the full error to the server console (check Vercel logs or terminal)
     console.error('Clerk createUser error:', error);
 
     // Return a detailed message to the frontend
     return NextResponse.json(
       {
-        error: error.message || 'Failed to create user',
-        details: error.errors || error,
+        error: err.message || 'Failed to create user',
+        details: err.errors || error,
       },
       { status: 422 }
     );

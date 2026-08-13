@@ -2,3 +2,8 @@ export * from './cockroachTable';
 export * from './users';
 export * from './clinics';
 export * from './clinicSettings';
+export * from './patients';
+export * from './patientGroups';
+export * from './referralSources';
+export * from './medicalConditions';
+export * from './counters';
