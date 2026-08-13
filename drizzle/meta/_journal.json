@@ -22,6 +22,20 @@
       "when": 1786558719555,
       "tag": "0002_globalize_shared_lists",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1786585234733,
+      "tag": "0003_wakeful_ikaris",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1786587773471,
+      "tag": "0004_wise_leech",
+      "breakpoints": true
     }
   ]
 }

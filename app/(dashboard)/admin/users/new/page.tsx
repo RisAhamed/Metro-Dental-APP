@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 export default function NewUserPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [labs, setLabs] = useState<{ labId: string; name: string }[]>([]);
   const [form, setForm] = useState({
     name: '',
     email: '',
@@ -13,10 +14,28 @@ export default function NewUserPage() {
     role: 'GENERAL_DOCTOR',
     primaryClinicId: 'clinic_a',
     clinicIds: ['clinic_a'],
+    labId: '',
   });
+
+  useEffect(() => {
+    const loadLabs = async () => {
+      try {
+        const res = await fetch('/api/labs?active=true');
+        const data = await res.json();
+        setLabs(data.labs || []);
+      } catch (error) {
+        console.error('Error fetching labs:', error);
+      }
+    };
+    loadLabs();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (form.role === 'LAB_TECHNICIAN' && !form.labId) {
+      alert('Please select a lab for the Lab Technician');
+      return;
+    }
     setLoading(true);
     try {
       const res = await fetch('/api/auth/create-user', {
@@ -87,6 +106,24 @@ export default function NewUserPage() {
             <option value="VENDOR">Vendor</option>
           </select>
         </div>
+        {form.role === 'LAB_TECHNICIAN' && (
+          <div>
+            <label className="block text-sm font-medium">Lab *</label>
+            <select
+              required
+              className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
+              value={form.labId}
+              onChange={(e) => setForm({ ...form, labId: e.target.value })}
+            >
+              <option value="">Select Lab</option>
+              {labs.map((lab) => (
+                <option key={lab.labId} value={lab.labId}>
+                  {lab.name} ({lab.labId})
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         <div>
           <label className="block text-sm font-medium">Primary Clinic</label>
           <select

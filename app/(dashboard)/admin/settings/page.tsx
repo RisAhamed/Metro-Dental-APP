@@ -1,6 +1,7 @@
 import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
 import { isSuperAdmin } from '@/lib/auth/claims';
+import { SeedDataButton } from '@/components/admin/SeedDataButton';
 
 export default async function SettingsPage() {
   const { userId, sessionClaims } = await auth();
@@ -8,9 +9,9 @@ export default async function SettingsPage() {
   if (!isSuperAdmin(sessionClaims)) redirect('/');
 
   return (
-    <div>
+    <div className="space-y-6">
       <h1 className="text-2xl font-bold">Settings</h1>
-      <p className="text-gray-600">Coming soon</p>
+      <SeedDataButton />
     </div>
   );
 }

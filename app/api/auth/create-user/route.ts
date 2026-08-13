@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { name, email, phone, role, primaryClinicId, clinicIds } = body;
+  const { name, email, phone, role, primaryClinicId, clinicIds, labId, vendorId } = body;
 
   // Validate required fields
   if (!name || !email || !role) {
@@ -91,7 +91,7 @@ export async function POST(req: NextRequest) {
 
   try {
     // Generate temp password
-    const tempPwd = `Dc${Math.random().toString(36).slice(-6)}1!`;
+    const tempPwd = `Dc${Math.random().toString(36).slice(-8)}${Math.random().toString(36).slice(-6)}1!`;
 
     // Create user in Clerk with full error handling
     const client = await clerkClient();
@@ -104,6 +104,8 @@ export async function POST(req: NextRequest) {
         role,
         clinicIds,
         primaryClinicId: primaryClinicId || clinicIds[0],
+        labId: labId || null,
+        vendorId: vendorId || null,
       },
     });
 
@@ -117,6 +119,8 @@ export async function POST(req: NextRequest) {
       primaryClinicId: primaryClinicId || clinicIds[0],
       clinicIds,
       isActive: true,
+      labId: labId || null,
+      vendorId: vendorId || null,
       createdBy: userId || 'system',
     });
 

@@ -180,7 +180,7 @@ export * from './tokens';
 export * from './appointmentCategories';
 export * from './counters';
 ```
-
+ 
 Run migration:
 
 ```bash
@@ -1644,3 +1644,673 @@ export function AppointmentModal({
 - [ ] Super Admin can create appointment categories
 - [ ] General Doctor cannot create categories
 
+
+# Phase 3 Clarifications & Complete Implementation Guide
+
+---
+
+## 1. What is `appointment_slots` Table & Why It Has No Design Docs
+
+The `appointment_slots` table is the **double-booking prevention mechanism**. It doesn't need its own design doc because it's a single-purpose table with a straightforward design.
+
+### Purpose
+- Prevents two users from booking the same doctor at the same time
+- Uses a **deterministic slot key** format: `{doctorId}_{date}_{time}`
+- Example: `doctor_abc123_20250811_1800`
+
+### How It Works
+
+```typescript
+// When booking an appointment:
+const slotKey = `${doctorId}_${dateString}_${timeString}`;
+
+// In a transaction:
+// 1. Check if slotKey exists in appointment_slots table
+// 2. If exists → reject booking (SLOT_TAKEN)
+// 3. If not exists → create slot lock + create appointment
+```
+
+### Why It's Reliable
+- Two concurrent writes to the same slotKey will conflict
+- One transaction succeeds, the other fails atomically
+- No race conditions, even under heavy load
+
+### Schema (Already Defined)
+
+**File:** `src/lib/db/schema/appointmentSlots.ts`
+
+```typescript
+export const appointmentSlots = table('appointment_slots', {
+  slotKey: text('slot_key').primaryKey().notNull(),
+  doctorId: text('doctor_id').notNull(),
+  appointmentId: text('appointment_id').notNull(),
+  bookedAt: timestamp('booked_at', { withTimezone: true }).defaultNow().notNull(),
+});
+```
+
+---
+
+## 2. Permission Update: General Doctor Can Create Categories
+
+### Updated Permission Matrix
+
+| Role | View Categories | Create Categories | Edit Categories | Delete Categories |
+|------|-----------------|-------------------|-----------------|-------------------|
+| SUPER_ADMIN | ✅ | ✅ | ✅ | ✅ |
+| CLINIC_ADMIN | ✅ | ✅ | ✅ | ✅ |
+| GENERAL_DOCTOR | ✅ | ✅ | ✅ | ✅ |
+| ASSISTANT_DOCTOR | ✅ | ❌ | ❌ | ❌ |
+| RECEPTIONIST | ✅ | ❌ | ❌ | ❌ |
+| LAB_TECHNICIAN | ❌ | ❌ | ❌ | ❌ |
+| VENDOR | ❌ | ❌ | ❌ | ❌ |
+
+### Updated API Route
+
+**File:** `src/app/api/appointment-categories/route.ts` (POST method)
+
+```typescript
+export async function POST(req: NextRequest) {
+  const { sessionClaims, userId } = await auth();
+  if (!isStaff(sessionClaims) || !userId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+  }
+
+  // Allow SUPER_ADMIN, CLINIC_ADMIN, and GENERAL_DOCTOR to create categories
+  const role = sessionClaims?.role || '';
+  if (!['SUPER_ADMIN', 'CLINIC_ADMIN', 'GENERAL_DOCTOR'].includes(role)) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  // ... rest of the code
+}
+```
+
+---
+
+## 3. Complete Seed Data for All Lookup Lists
+
+Here's the **complete seed data** that must be inserted during setup. All these options should be available to receptionists and doctors when creating patients or booking appointments.
+
+### 3.1 Appointment Categories
+
+**File:** `src/lib/seed/appointmentCategories.ts`
+
+```typescript
+export const defaultAppointmentCategories = [
+  { name: 'CONSULTATION', color: '#3B82F6' },
+  { name: 'EXTRACTION', color: '#EF4444' },
+  { name: 'FILLING', color: '#F59E0B' },
+  { name: 'SCALING', color: '#10B981' },
+  { name: 'RCT', color: '#06B6D4' },
+  { name: 'RCT RETREATMENT', color: '#0EA5E9' },
+  { name: 'WISDOM TOOTH EXTRACTION', color: '#9F1239' },
+  { name: 'ORTHO', color: '#8B5CF6' },
+  { name: 'IMPLANT', color: '#6366F1' },
+  { name: 'SURGICAL', color: '#DC2626' },
+  { name: 'BLEACHING', color: '#F59E0B' },
+  { name: 'GIC FILLING', color: '#14B8A6' },
+  { name: 'COMPOSITE FILLING', color: '#22D3EE' },
+  { name: 'I-SEAL FILLING', color: '#06B6D4' },
+  { name: 'FA - METAL', color: '#78716C' },
+  { name: 'FA - TOOTH COLOUR', color: '#FDE68A' },
+  { name: 'FA - CLEAR ALIGN', color: '#A78BFA' },
+  { name: 'FA - INVISALIGN', color: '#8B5CF6' },
+  { name: 'RPD UPPER', color: '#D97706' },
+  { name: 'NO CATEGORY', color: '#6B7280' },
+];
+```
+
+### 3.2 Referral Sources
+
+**File:** `src/lib/seed/referralSources.ts`
+
+```typescript
+export const defaultReferralSources = [
+  'Another Patient',
+  'Just Dial',
+  'Google',
+  'MEDICAL',
+  'LAXMI MEDICAL',
+  'LKS',
+  'DR.IQBAL',
+  'KOUSIK',
+  'KRISHNAN',
+  'KOVAI TIMBER NIZAR',
+  'JHON',
+  'DR.PALLAVI',
+  'Dr.PRIYA',
+  'SISTER PRIYA',
+  'DR.PRASANNA',
+  'DR.PREM',
+  'MEDICAL THATIL PHARMACY',
+  'MEERAN',
+  'ADAYAR CLINIC',
+  'GOLDEN',
+  'VANARAJ',
+  'LAXMI MEDICAL GANDHI',
+  'KANNIYAMMAL',
+  'SISTER.JASMIN',
+  'MOHAMED',
+  'NAVAS GANI',
+  'DR.EZILMARAN',
+  'KOUSIQ',
+  'SHARIFF',
+  'CABLE',
+  'MEDICAL MASS',
+  'DR.PRABHAKAR',
+  'Dr.MAARESWARAN',
+  'DR.GOWRISHANKAR',
+  'BRO.BENNETO',
+  'Dr.MUBEEN',
+  'CRESCENT COLLEGE',
+  'SUNDARAM MEDICAL',
+  'Dr.THOMAS',
+  'Dr.GEETHAMANI',
+  'S F MEDICAL',
+  'Hameediya Shahul',
+  'Shine Plastics',
+  'Friend',
+  'Family',
+  'Social Media',
+];
+```
+
+### 3.3 Medical History
+
+**File:** `src/lib/seed/medicalConditions.ts`
+
+```typescript
+export const defaultMedicalConditions = [
+  'Hypertension',
+  'Diabetes',
+  'Asthma',
+  'Epilepsy',
+  'Heart Disease',
+  'Allergies',
+  'Gastric Ulcers',
+  'Undergone Dental Treatment Earlier',
+  'Bleeding Disorders',
+  'Undergone cardiac stunt',
+  'Anemia',
+  'Psychiatric Problems',
+  'HEARING IMPAIRED',
+  'VERTICO',
+  'H/O PARALYSIS',
+  'Hyperthyroid',
+  'HYPOTENSION',
+  'NO MEDICAL HISTORY',
+  'FAMILY HISTORY OF DIABETES',
+  'HYPOTHYROID',
+  'CHRONIC MYLOID LEUKIMIA',
+  'PREGNANT',
+  'MOTHER FEEDING',
+  'Thyroid',
+  'CARDIAC VALVULAR PROBLEM',
+  'Hypercholesterolemia',
+  'CABG',
+  'DIALYSIS',
+  'Rheumatoid arthritis',
+  'HYPERCHOLESTREMIA',
+  'LUNG INFECTION',
+  'ALLERGIC TO PENCILLIN',
+  'BLOOD PRESSURE',
+  'KIDNEY PROBLEM',
+  'Hypertension under medication',
+  'ALLERGIC TO SARIDON TAB',
+  'ALLERGIC TO VOVERAN inj.(DICLOFENAC)',
+  'ALLERGIC TO TAB ANALGIN',
+  'ALLERGIC TO OFLOXACIN',
+  'norfloxacin & ciprofloxacin allergy',
+  'WHEEZING',
+  'Allergic to IBUPROFEN',
+  'Allergic to DICYCLOMINE HYDROCHLORIDE',
+  'SKIN PROBLEM',
+  'Kidney Stone',
+  'Vertigo',
+  'Stroke',
+  'Hyper Lipidemea',
+  'CANCER',
+  'Breastfeeding',
+  'KIDNEY DISEASE',
+  'High creatinine level',
+  'Vitiligo',
+  'Neuro',
+  'NEUROLOGY',
+  'ANXIETY',
+  'CEF ALLERGY',
+  'SPORIDEX ALLERGY',
+  'ORTHO CASE MOTIVATED BY DR MUBEEN',
+];
+```
+
+### 3.4 Patient Groups
+
+**File:** `src/lib/seed/patientGroups.ts`
+
+```typescript
+export const defaultPatientGroups = [
+  'WISDOM TOOTH EXTRACTION',
+  'ADAYAR',
+  'RCT',
+  'EXTRACTION',
+  'KODAMBAKKAM',
+  'FA',
+  'RCT 46',
+  'MYLAPORE CLINIC',
+  'I-SEAL FILING',
+  'FA- METAL',
+  'RCT RETREATMENT',
+  'RCT 26',
+  'Dr.EZHILMARAN',
+  'Outside consultation',
+  'child 1-4',
+  'DR.PRASANNA',
+  'LKS',
+  'RCT 16',
+  'RCT 17',
+  'RCT 33',
+  'RCT 36',
+  'RCT 42',
+  'GIC TYPE 9 EXTRA FILLING',
+  'FILLING-GIC',
+  'FA- METAL SELF LIGATING',
+  'RPD UPPER',
+  'IMPLANT',
+  'Mylapore',
+  'E1 POLISE STATION MYLAPORE',
+  'RCT 11',
+  'RCT 12',
+  'RCT 13',
+  'RCT 14',
+  'RCT 15',
+  'RCT 18',
+  'RCT 21',
+  'RCT 22',
+  'RCT 23',
+  'RCT 24',
+  'RCT 25',
+  'RCT 27',
+  'RCT 28',
+  'RCT 31',
+  'RCT 32',
+  'RCT 34',
+  'RCT 35',
+  'RCT 37',
+  'RCT 38',
+  'RCT 41',
+  'RCT 43',
+  'RCT 44',
+  'RCT 45',
+  'RCT 47',
+  'RCT 48',
+  'FILLING-GIC TYPE 9 EXTRA',
+  'FILLING-I SEAL',
+  'FILLING-COMPOSITE',
+  'FILLING-GIC LC',
+  'FILLING-TF',
+  'FA- TOOTH COLOUR',
+  'FA- TOOTH COLOUR SELF LIGATING',
+  'FA- LINGUAL',
+  'FA- CLEAR ALIGN',
+  'FA- INVIZHIALIGN',
+  'FA- INVISALIGN',
+  'KODAMBAKKAM CLINIC',
+];
+```
+
+---
+
+## 4. Seed Script
+
+**File:** `src/lib/seed/index.ts`
+
+```typescript
+import { db } from '@/lib/db';
+import { referralSources } from '@/lib/db/schema/referralSources';
+import { medicalConditions } from '@/lib/db/schema/medicalConditions';
+import { patientGroups } from '@/lib/db/schema/patientGroups';
+import { appointmentCategories } from '@/lib/db/schema/appointmentCategories';
+import { defaultReferralSources } from './referralSources';
+import { defaultMedicalConditions } from './medicalConditions';
+import { defaultPatientGroups } from './patientGroups';
+import { defaultAppointmentCategories } from './appointmentCategories';
+
+export async function seedAllData(clinicId: string = 'clinic_a') {
+  console.log('🌱 Seeding data...');
+
+  // Seed Referral Sources (Global)
+  console.log('📝 Seeding referral sources...');
+  for (const name of defaultReferralSources) {
+    const id = name.toLowerCase().replace(/[^a-z0-9]/g, '-');
+    await db.insert(referralSources)
+      .values({ id, name, isActive: true })
+      .onConflictDoNothing();
+  }
+
+  // Seed Medical Conditions (Global)
+  console.log('📝 Seeding medical conditions...');
+  for (const name of defaultMedicalConditions) {
+    const id = name.toLowerCase().replace(/[^a-z0-9]/g, '-');
+    await db.insert(medicalConditions)
+      .values({ id, name, isActive: true })
+      .onConflictDoNothing();
+  }
+
+  // Seed Patient Groups (Clinic-specific)
+  console.log('📝 Seeding patient groups...');
+  for (const name of defaultPatientGroups) {
+    const id = name.toLowerCase().replace(/[^a-z0-9]/g, '-');
+    await db.insert(patientGroups)
+      .values({ 
+        id, 
+        name, 
+        clinicId, 
+        patientCount: 0,
+        createdBy: 'system' 
+      })
+      .onConflictDoNothing();
+  }
+
+  // Seed Appointment Categories (Global)
+  console.log('📝 Seeding appointment categories...');
+  for (const cat of defaultAppointmentCategories) {
+    const id = cat.name.toLowerCase().replace(/[^a-z0-9]/g, '-');
+    await db.insert(appointmentCategories)
+      .values({ 
+        id, 
+        name: cat.name, 
+        color: cat.color, 
+        clinicId: null, 
+        isActive: true 
+      })
+      .onConflictDoNothing();
+  }
+
+  console.log('✅ Seeding complete!');
+}
+```
+
+---
+
+## 5. Updated Patient Registration Form
+
+The patient registration form must display **ALL** options by default, with the ability to add new ones.
+
+### Updated Fetch Logic
+
+**File:** `src/app/(dashboard)/patients/new/page.tsx` (updated useEffect)
+
+```typescript
+useEffect(() => {
+  fetchAllLookups();
+  generatePatientId();
+}, []);
+
+const fetchAllLookups = async () => {
+  try {
+    // Fetch referral sources
+    const refRes = await fetch('/api/referral-sources');
+    const refData = await refRes.json();
+    setAvailableReferralSources(refData.sources.map((s: any) => s.name));
+
+    // Fetch medical conditions
+    const medRes = await fetch('/api/medical-conditions');
+    const medData = await medRes.json();
+    setAvailableMedicalHistory(medData.conditions.map((c: any) => c.name));
+
+    // Fetch patient groups
+    const groupRes = await fetch(`/api/patient-groups?clinicId=${clinicId}`);
+    const groupData = await groupRes.json();
+    setAvailableGroups(groupData.groups.map((g: any) => g.name));
+
+    // Fetch appointment categories (for reference)
+    const catRes = await fetch(`/api/appointment-categories?clinicId=${clinicId}`);
+    const catData = await catRes.json();
+    setAvailableCategories(catData.categories.map((c: any) => c.name));
+  } catch (error) {
+    console.error('Error fetching lookup data:', error);
+  }
+};
+```
+
+---
+
+## 6. Appointment Modal: Add Patient Inline
+
+The appointment modal should allow receptionists to **add a new patient directly** without leaving the modal.
+
+### Updated Appointment Modal
+
+**File:** `src/components/calendar/AppointmentModal.tsx` (Add this section)
+
+```tsx
+// Add a new patient inline in the appointment modal
+const [showNewPatientForm, setShowNewPatientForm] = useState(false);
+const [newPatient, setNewPatient] = useState({
+  name: '',
+  phone: '',
+  gender: 'MALE',
+  age: '',
+});
+
+const handleAddNewPatient = async () => {
+  if (!newPatient.name || !newPatient.phone) {
+    alert('Please enter at least name and phone');
+    return;
+  }
+
+  try {
+    // Generate patient ID
+    const idRes = await fetch('/api/patients/generate-id');
+    const idData = await idRes.json();
+
+    // Create patient
+    const payload = {
+      patientId: idData.patientId,
+      name: newPatient.name,
+      gender: newPatient.gender,
+      primaryPhone: newPatient.phone,
+      registeredClinicId: clinicId,
+      age: newPatient.age || null,
+      createdBy: userId,
+    };
+
+    const res = await fetch('/api/patients', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      // Auto-select the new patient
+      setSelectedPatient({
+        patientId: data.patientId,
+        name: newPatient.name,
+        primaryPhone: newPatient.phone,
+      });
+      setForm({
+        ...form,
+        patientId: data.patientId,
+        patientName: newPatient.name,
+        patientPhone: newPatient.phone,
+      });
+      setShowNewPatientForm(false);
+      setNewPatient({ name: '', phone: '', gender: 'MALE', age: '' });
+    } else {
+      const error = await res.json();
+      alert(error.error || 'Failed to create patient');
+    }
+  } catch (error) {
+    console.error('Error creating patient:', error);
+    alert('An error occurred');
+  }
+};
+```
+
+**Add this button in the patient search section:**
+
+```tsx
+<button
+  type="button"
+  onClick={() => setShowNewPatientForm(!showNewPatientForm)}
+  className="text-sm text-blue-600 hover:underline"
+>
+  + Add New Patient
+</button>
+```
+
+---
+
+## 7. Appointment Modal: ABHA ID and Token Lookup
+
+### Add ABHA ID Field
+
+```tsx
+<div>
+  <label className="block text-sm font-medium text-gray-700">ABHA ID</label>
+  <div className="flex gap-2">
+    <input
+      type="text"
+      value={form.abhaId}
+      onChange={(e) => setForm({ ...form, abhaId: e.target.value })}
+      className="flex-1 mt-1 block border border-gray-300 rounded-md px-3 py-2"
+      placeholder="Enter ABHA ID"
+    />
+    <button
+      type="button"
+      onClick={async () => {
+        if (!form.abhaId) return;
+        try {
+          const res = await fetch(`/api/patients?abhaId=${form.abhaId}`);
+          const data = await res.json();
+          if (data.patients && data.patients.length > 0) {
+            handleSelectPatient(data.patients[0]);
+          } else {
+            alert('No patient found with this ABHA ID');
+          }
+        } catch (error) {
+          console.error('ABHA lookup error:', error);
+        }
+      }}
+      className="mt-1 px-3 py-2 bg-gray-100 rounded-md hover:bg-gray-200 text-sm"
+    >
+      Get Details
+    </button>
+  </div>
+</div>
+```
+
+### Add Token Number Field
+
+```tsx
+<div>
+  <label className="block text-sm font-medium text-gray-700">Token Number</label>
+  <div className="flex gap-2">
+    <input
+      type="text"
+      value={form.tokenNumber}
+      onChange={(e) => setForm({ ...form, tokenNumber: e.target.value })}
+      className="flex-1 mt-1 block border border-gray-300 rounded-md px-3 py-2"
+      placeholder="Enter Token Number"
+    />
+    <button
+      type="button"
+      onClick={async () => {
+        if (!form.tokenNumber) return;
+        try {
+          const res = await fetch(`/api/tokens?tokenNumber=${form.tokenNumber}`);
+          const data = await res.json();
+          if (data.token) {
+            // If token exists, fetch patient details
+            const patientRes = await fetch(`/api/patients/${data.token.patientId}`);
+            const patientData = await patientRes.json();
+            if (patientData.patient) {
+              handleSelectPatient(patientData.patient);
+            }
+          } else {
+            alert('No token found');
+          }
+        } catch (error) {
+          console.error('Token lookup error:', error);
+        }
+      }}
+      className="mt-1 px-3 py-2 bg-gray-100 rounded-md hover:bg-gray-200 text-sm"
+    >
+      Get Details
+    </button>
+  </div>
+</div>
+```
+
+---
+
+## 8. Phase 3 Checklist (Updated)
+
+### Database
+- [ ] `appointments` table created
+- [ ] `appointment_slots` table created (for double-booking prevention)
+- [ ] `reminders` table created
+- [ ] `tokens` table created
+- [ ] `appointment_categories` table created
+- [ ] All seed data inserted (referral sources, medical history, groups, appointment categories)
+- [ ] Migrations run successfully
+
+### API Routes
+- [ ] `GET /api/appointments` returns appointments for date range
+- [ ] `POST /api/appointments` creates appointment with slot lock
+- [ ] `POST /api/appointments` prevents double-booking (409 conflict)
+- [ ] `PATCH /api/appointments/[id]` updates appointment status
+- [ ] `POST /api/tokens` issues walk-in token (T-001, T-002, etc.)
+- [ ] `GET /api/tokens?tokenNumber=` looks up token by number
+- [ ] `POST /api/reminders` creates reminder
+- [ ] `GET /api/appointment-categories` returns categories list
+- [ ] `POST /api/appointment-categories` creates category (Admin + Doctor)
+
+### Appointment Modal
+- [ ] ABHA ID field + lookup button works
+- [ ] Token Number field + lookup button works
+- [ ] Patient search works (live search by name/phone/ID)
+- [ ] "Add New Patient" inline form works
+- [ ] Doctor dropdown shows all active doctors
+- [ ] Category dropdown shows all categories (pre-seeded)
+- [ ] Date/time selection works
+- [ ] "Outside doctor's timings" warning appears (warning only, does not block)
+- [ ] Duration dropdown (15min to 2hr)
+- [ ] Walk-in checkbox works
+- [ ] Tab 2: Reminder form works with "All Doctors" option
+
+### Slot Lock & Double-Booking
+- [ ] Opening 2 tabs and booking same slot → only 1 succeeds
+- [ ] Error message "This slot is already booked" appears
+
+### Permissions
+- [ ] Receptionist can book appointments
+- [ ] Receptionist can add new patient inline
+- [ ] Receptionist can see all categories, referral sources, medical history, groups
+- [ ] Doctors (General + Clinic Admin) can create appointment categories
+- [ ] Assistant Doctor cannot create categories
+
+---
+
+## 9. Next Steps
+
+1. **Run migrations** to create all Phase 3 tables:
+   ```bash
+   npx drizzle-kit generate
+   npx drizzle-kit migrate
+   ```
+
+2. **Run seed script** to populate all lookup data:
+   ```typescript
+   import { seedAllData } from '@/lib/seed';
+   await seedAllData('clinic_a');
+   ```
+
+3. **Build the Calendar UI** components
+4. **Test appointment booking** with double-booking prevention
+5. **Verify all lookup lists** are populated for all roles
+
+---
+
+This completes the Phase 3 blueprint with all clarifications addressed.
