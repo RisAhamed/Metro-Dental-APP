@@ -7,6 +7,7 @@ import { Plus, Trash2 } from 'lucide-react';
 interface Vendor {
   vendorId: string;
   name: string;
+  clinicId: string;
 }
 
 interface InventoryItem {
@@ -36,6 +37,7 @@ export default function NewPurchaseOrderPage() {
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [vendorId, setVendorId] = useState('');
+  const [clinicId, setClinicId] = useState('');
   const [expectedDeliveryDate, setExpectedDeliveryDate] = useState('');
   const [notes, setNotes] = useState('');
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
@@ -146,6 +148,7 @@ export default function NewPurchaseOrderPage() {
         body: JSON.stringify({
           vendorId,
           vendorName: vendor?.name || '',
+          clinicId: clinicId || null,
           lineItems,
           expectedDeliveryDate: expectedDeliveryDate || null,
           notes: notes || null,
@@ -183,22 +186,59 @@ export default function NewPurchaseOrderPage() {
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="bg-white rounded-lg shadow p-6">
           <h2 className="text-lg font-semibold mb-4">Order Details</h2>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Vendor *</label>
               <select
                 required
                 value={vendorId}
-                onChange={(e) => setVendorId(e.target.value)}
+                onChange={(e) => {
+                  const vid = e.target.value;
+                  setVendorId(vid);
+                  const v = vendors.find((x) => x.vendorId === vid);
+                  if (v && v.clinicId !== 'shared') setClinicId(v.clinicId);
+                }}
                 className={inputClass}
               >
                 <option value="">Select vendor</option>
                 {vendors.map((v) => (
                   <option key={v.vendorId} value={v.vendorId}>
                     {v.name}
+                    {v.clinicId === 'shared'
+                      ? ''
+                      : ` (delivers to ${v.clinicId === 'clinic_a' ? 'Clinic A' : 'Clinic B'})`}
                   </option>
                 ))}
               </select>
+              {vendorId && (
+                <p className="mt-1 text-xs text-gray-500">
+                  {(() => {
+                    const v = vendors.find((x) => x.vendorId === vendorId);
+                    if (!v) return null;
+                    return v.clinicId === 'shared'
+                      ? 'This vendor serves all clinics.'
+                      : `Delivery clinic: ${v.clinicId === 'clinic_a' ? 'Clinic A' : 'Clinic B'}`;
+                  })()}
+                </p>
+              )}
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Deliver To Clinic *
+              </label>
+              <select
+                required
+                value={clinicId}
+                onChange={(e) => setClinicId(e.target.value)}
+                className={inputClass}
+              >
+                <option value="">Select clinic</option>
+                <option value="clinic_a">Clinic A</option>
+                <option value="clinic_b">Clinic B</option>
+              </select>
+              <p className="mt-1 text-xs text-gray-500">
+                The vendor will see this clinic as the delivery destination.
+              </p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Expected Delivery</label>

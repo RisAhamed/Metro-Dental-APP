@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@clerk/nextjs';
 import Link from 'next/link';
+import { clinics } from '@/lib/constants/clinics';
 
 const STAFF_ROLES = ['CLINIC_ADMIN', 'GENERAL_DOCTOR', 'ASSISTANT_DOCTOR', 'RECEPTIONIST'];
 
@@ -38,7 +39,10 @@ function statusColor(status: string): string {
 
 export default function AttendanceBoardPage() {
   const { sessionClaims } = useAuth();
-  const clinicId = (sessionClaims?.primaryClinicId as string) || 'clinic_a';
+  const isSuperAdmin = (sessionClaims?.role as string) === 'SUPER_ADMIN';
+  const [clinicId, setClinicId] = useState<string>(
+    (sessionClaims?.primaryClinicId as string) || 'clinic_a'
+  );
   const [dateString, setDateString] = useState(() =>
     new Intl.DateTimeFormat('en-CA', {
       timeZone: 'Asia/Kolkata',
@@ -114,7 +118,7 @@ export default function AttendanceBoardPage() {
         const data = await res.json();
         alert(data.error || 'Failed to update attendance');
       }
-    } catch (error) {
+    } catch {
       alert('An error occurred');
     } finally {
       setClocking(null);
@@ -126,6 +130,19 @@ export default function AttendanceBoardPage() {
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">Attendance Board</h1>
         <div className="flex items-center gap-2">
+          {isSuperAdmin && (
+            <select
+              className="border border-gray-300 rounded-md px-3 py-2 text-sm"
+              value={clinicId}
+              onChange={(e) => setClinicId(e.target.value)}
+            >
+              {clinics.map((c) => (
+                <option key={c.clinicId} value={c.clinicId}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          )}
           <input
             type="date"
             className="border border-gray-300 rounded-md px-3 py-2 text-sm"

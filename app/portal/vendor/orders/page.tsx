@@ -103,7 +103,8 @@ export default function VendorPortalOrdersPage() {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">PO #</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Clinic</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Deliver To</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Expected Delivery</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Items</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
@@ -125,6 +126,11 @@ export default function VendorPortalOrdersPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {CLINIC_NAMES[order.clinicId] || order.clinicId}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {order.expectedDeliveryDate
+                        ? new Date(order.expectedDeliveryDate).toLocaleDateString('en-IN')
+                        : '-'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {order.lineItems?.length || 0} items

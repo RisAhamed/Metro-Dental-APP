@@ -7,6 +7,8 @@ export default function NewUserPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [labs, setLabs] = useState<{ labId: string; name: string }[]>([]);
+  const [vendors, setVendors] = useState<{ vendorId: string; name: string; clinicId: string }[]>([]);
+  const [selectedVendorId, setSelectedVendorId] = useState('');
   const [form, setForm] = useState({
     name: '',
     email: '',
@@ -30,6 +32,24 @@ export default function NewUserPage() {
     loadLabs();
   }, []);
 
+  useEffect(() => {
+    if (form.role !== 'VENDOR') return;
+    let cancelled = false;
+    const loadVendors = async () => {
+      try {
+        const res = await fetch('/api/vendors?active=true');
+        const data = await res.json();
+        if (!cancelled) setVendors(data.vendors || []);
+      } catch (error) {
+        console.error('Error fetching vendors:', error);
+      }
+    };
+    loadVendors();
+    return () => {
+      cancelled = true;
+    };
+  }, [form.role]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (form.role === 'LAB_TECHNICIAN' && !form.labId) {
@@ -41,16 +61,19 @@ export default function NewUserPage() {
       const res = await fetch('/api/auth/create-user', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, vendorId: selectedVendorId || null }),
       });
       const data = await res.json();
       if (res.ok) {
-        alert(`User created with temp password: ${data.tempPassword}`);
+        const vendorMsg = data.vendorId
+          ? `\nVendor: ${data.vendorId}`
+          : '';
+        alert(`User created with temp password: ${data.tempPassword}${vendorMsg}`);
         router.push('/admin/users');
       } else {
         alert(data.error || 'Failed to create user');
       }
-    } catch (error) {
+    } catch {
       alert('Error creating user');
     } finally {
       setLoading(false);
@@ -95,7 +118,11 @@ export default function NewUserPage() {
           <select
             className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
             value={form.role}
-            onChange={(e) => setForm({ ...form, role: e.target.value })}
+            onChange={(e) => {
+              const nextRole = e.target.value;
+              if (nextRole !== 'VENDOR') setSelectedVendorId('');
+              setForm({ ...form, role: nextRole });
+            }}
           >
             <option value="SUPER_ADMIN">Super Admin</option>
             <option value="CLINIC_ADMIN">Clinic Admin</option>
@@ -122,6 +149,31 @@ export default function NewUserPage() {
                 </option>
               ))}
             </select>
+          </div>
+        )}
+        {form.role === 'VENDOR' && (
+          <div>
+            <label className="block text-sm font-medium">Vendor *</label>
+            <select
+              required
+              className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
+              value={selectedVendorId}
+              onChange={(e) => setSelectedVendorId(e.target.value)}
+            >
+              <option value="">Auto-create vendor (name = user name)</option>
+              <option value="__sep__" disabled>
+                — or link an existing vendor —
+              </option>
+              {vendors.map((vendor) => (
+                <option key={vendor.vendorId} value={vendor.vendorId}>
+                  {vendor.name} ({vendor.vendorId})
+                  {vendor.clinicId === 'shared' ? '' : ` · ${vendor.clinicId === 'clinic_a' ? 'Clinic A' : 'Clinic B'}`}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-gray-500">
+              Leave on &quot;Auto-create&quot; to create the vendor in inventory with the user&apos;s name and primary clinic.
+            </p>
           </div>
         )}
         <div>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, FormEvent } from 'react';
-import { Plus, Pencil, Trash2, X, Phone, Mail } from 'lucide-react';
+import { Pencil, Trash2, X, Phone, Mail } from 'lucide-react';
 
 interface Vendor {
   vendorId: string;
@@ -10,6 +10,7 @@ interface Vendor {
   phone: string | null;
   email: string | null;
   contactPerson: string | null;
+  clinicId: string;
   isActive: boolean;
 }
 
@@ -30,18 +31,6 @@ export default function VendorsManager() {
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
-  const loadVendors = async () => {
-    try {
-      const res = await fetch('/api/vendors?active=true');
-      const data = await res.json();
-      setVendors(data.vendors || []);
-    } catch (error) {
-      console.error('Error loading vendors:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
@@ -61,11 +50,16 @@ export default function VendorsManager() {
     };
   }, []);
 
-  const openAdd = () => {
-    setEditing(null);
-    setForm(EMPTY_FORM);
-    setError('');
-    setShowModal(true);
+  const loadVendors = async () => {
+    try {
+      const res = await fetch('/api/vendors?active=true');
+      const data = await res.json();
+      setVendors(data.vendors || []);
+    } catch (error) {
+      console.error('Error loading vendors:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const openEdit = (vendor: Vendor) => {
@@ -83,45 +77,26 @@ export default function VendorsManager() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (!editing) return;
     setSaving(true);
     setError('');
     try {
-      if (editing) {
-        const res = await fetch(`/api/vendors/${editing.vendorId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: form.name,
-            address: form.address,
-            phone: form.phone,
-            email: form.email,
-            contactPerson: form.contactPerson,
-          }),
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          setError(data.error || 'Failed to update vendor');
-          setSaving(false);
-          return;
-        }
-      } else {
-        const res = await fetch('/api/vendors', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: form.name,
-            address: form.address,
-            phone: form.phone,
-            email: form.email,
-            contactPerson: form.contactPerson,
-          }),
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          setError(data.error || 'Failed to create vendor');
-          setSaving(false);
-          return;
-        }
+      const res = await fetch(`/api/vendors/${editing.vendorId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: form.name,
+          address: form.address,
+          phone: form.phone,
+          email: form.email,
+          contactPerson: form.contactPerson,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || 'Failed to update vendor');
+        setSaving(false);
+        return;
       }
       setShowModal(false);
       await loadVendors();
@@ -150,19 +125,13 @@ export default function VendorsManager() {
             Suppliers you place purchase orders with.
           </p>
         </div>
-        <button
-          onClick={openAdd}
-          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center gap-2"
-        >
-          <Plus className="h-4 w-4" /> Add Vendor
-        </button>
       </div>
 
       {loading ? (
         <div className="text-center py-8 text-gray-500">Loading...</div>
       ) : vendors.length === 0 ? (
         <div className="text-center py-8 text-gray-500">
-          <p>No vendors yet. Add your first vendor to start placing orders.</p>
+          <p>No vendors yet. Create a user with the VENDOR role to add a vendor.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -171,6 +140,18 @@ export default function VendorsManager() {
               <div className="flex items-start justify-between">
                 <div>
                   <h3 className="font-semibold text-gray-900">{vendor.name}</h3>
+                  {vendor.clinicId && (
+                    <p className="text-sm text-gray-500">
+                      Delivers to:{' '}
+                      {vendor.clinicId === 'shared'
+                        ? 'All clinics'
+                        : vendor.clinicId === 'clinic_a'
+                        ? 'Clinic A'
+                        : vendor.clinicId === 'clinic_b'
+                        ? 'Clinic B'
+                        : vendor.clinicId}
+                    </p>
+                  )}
                   {vendor.contactPerson && (
                     <p className="text-sm text-gray-500">Contact: {vendor.contactPerson}</p>
                   )}
@@ -212,9 +193,7 @@ export default function VendorsManager() {
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">
-                {editing ? 'Edit Vendor' : 'Add Vendor'}
-              </h3>
+              <h3 className="text-lg font-semibold">Edit Vendor</h3>
               <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">
                 <X className="h-5 w-5" />
               </button>
@@ -277,7 +256,7 @@ export default function VendorsManager() {
                 disabled={saving}
                 className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
               >
-                {saving ? 'Saving...' : editing ? 'Save Changes' : 'Add Vendor'}
+                {saving ? 'Saving...' : 'Save Changes'}
               </button>
             </form>
           </div>

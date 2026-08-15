@@ -200,19 +200,27 @@ export default function VendorOrderDetailPage({
         </div>
       )}
 
+      <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center gap-3">
+        <div>
+          <p className="text-xs font-medium text-blue-700 uppercase">Deliver To</p>
+          <p className="text-xl font-bold text-blue-900">
+            {CLINIC_NAMES[order.clinicId] || order.clinicId}
+          </p>
+        </div>
+        <div className="flex-1" />
+        <div className="text-right">
+          <p className="text-xs font-medium text-blue-700 uppercase">Expected Delivery</p>
+          <p className="text-lg font-semibold text-blue-900">
+            {order.expectedDeliveryDate
+              ? new Date(order.expectedDeliveryDate).toLocaleDateString('en-IN')
+              : 'Not set'}
+          </p>
+        </div>
+      </div>
+
       <div className="bg-white rounded-lg shadow p-4 mb-4">
-        <p className="text-sm text-gray-500">Clinic</p>
-        <p className="font-semibold">{CLINIC_NAMES[order.clinicId] || order.clinicId}</p>
-        <p className="text-sm text-gray-500 mt-2">Order Date</p>
+        <p className="text-sm text-gray-500">Order Date</p>
         <p className="font-medium">{new Date(order.orderDate).toLocaleDateString('en-IN')}</p>
-        {order.expectedDeliveryDate && (
-          <>
-            <p className="text-sm text-gray-500 mt-2">Expected Delivery</p>
-            <p className="font-medium">
-              {new Date(order.expectedDeliveryDate).toLocaleDateString('en-IN')}
-            </p>
-          </>
-        )}
         <p className="text-sm text-gray-500 mt-2">Order Total</p>
         <p className="text-xl font-bold">₹{Number(order.netAmount).toLocaleString('en-IN')}</p>
         {order.notes && (
