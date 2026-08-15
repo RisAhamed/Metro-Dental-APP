@@ -7,7 +7,7 @@ export function SeedDataButton() {
   const [message, setMessage] = useState<string | null>(null);
 
   const handleSeed = async () => {
-    if (!confirm('Seed all default data? This adds appointment categories, referral sources, medical conditions, and patient groups.')) {
+    if (!confirm('Seed all default data? This adds appointment categories, referral sources, medical conditions, patient groups, surgery types, Sunday tasks, and inventory categories.')) {
       return;
     }
     setLoading(true);
@@ -17,7 +17,7 @@ export function SeedDataButton() {
       if (res.ok) {
         const data = await res.json();
         setMessage(
-          `Seeded ${data.counts?.categories ?? 0} categories, ${data.counts?.referrals ?? 0} referrals, ${data.counts?.conditions ?? 0} conditions, ${data.counts?.groups ?? 0} groups.`
+          `Seeded ${data.counts?.categories ?? 0} categories, ${data.counts?.referrals ?? 0} referrals, ${data.counts?.conditions ?? 0} conditions, ${data.counts?.groups ?? 0} groups, ${data.counts?.surgeryTypes ?? 0} surgery types, ${data.counts?.sundayTasks ?? 0} Sunday tasks, ${data.counts?.inventoryCategories ?? 0} inventory categories.`
         );
       } else {
         const error = await res.json();
@@ -35,8 +35,8 @@ export function SeedDataButton() {
     <div className="bg-white rounded-lg shadow p-6">
       <h2 className="text-lg font-semibold text-gray-900">Seed Data</h2>
       <p className="text-sm text-gray-600 mt-1">
-        Insert default appointment categories, referral sources, medical conditions, and patient
-        groups.
+        Insert default appointment categories, referral sources, medical conditions, patient groups,
+        surgery types, Sunday tasks, and inventory categories.
       </p>
       <button
         onClick={handleSeed}

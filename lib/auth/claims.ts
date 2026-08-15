@@ -29,6 +29,27 @@ export function isClinicAdmin(claims: unknown): boolean {
   return normalize(claims)?.role === 'CLINIC_ADMIN';
 }
 
+// Can manage inventory, vendors, and purchase orders
+export function canManageInventory(claims: unknown): boolean {
+  return ['SUPER_ADMIN', 'CLINIC_ADMIN'].includes(normalize(claims)?.role || '');
+}
+
+// The clinic a non-super-admin belongs to (super admins span all clinics)
+export function getPrimaryClinicId(claims: unknown): string | null {
+  return normalize(claims)?.primaryClinicId ?? null;
+}
+
+// Can view and consume inventory stock (doctors, assistants, receptionists)
+export function canConsumeInventory(claims: unknown): boolean {
+  return [
+    'SUPER_ADMIN',
+    'CLINIC_ADMIN',
+    'GENERAL_DOCTOR',
+    'ASSISTANT_DOCTOR',
+    'RECEPTIONIST',
+  ].includes(normalize(claims)?.role || '');
+}
+
 export function isDoctor(claims: unknown): boolean {
   return ['SUPER_ADMIN', 'CLINIC_ADMIN', 'GENERAL_DOCTOR'].includes(
     normalize(claims)?.role || ''
@@ -60,6 +81,16 @@ export function canManagePatients(claims: unknown): boolean {
 export function canManageLookups(claims: unknown): boolean {
   return [
     'SUPER_ADMIN',
+    'CLINIC_ADMIN',
+    'GENERAL_DOCTOR',
+    'ASSISTANT_DOCTOR',
+    'RECEPTIONIST',
+  ].includes(normalize(claims)?.role || '');
+}
+
+// HR attendance eligible roles (excludes LAB_TECHNICIAN, VENDOR, SUPER_ADMIN)
+export function isHREligible(claims: unknown): boolean {
+  return [
     'CLINIC_ADMIN',
     'GENERAL_DOCTOR',
     'ASSISTANT_DOCTOR',

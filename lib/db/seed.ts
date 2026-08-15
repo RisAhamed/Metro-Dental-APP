@@ -6,7 +6,7 @@ async function main() {
   console.log(
     `Seeded ${result.referrals} referral sources, ${result.conditions} medical conditions, ` +
       `${result.categories} appointment categories, ${result.groups} patient groups, ` +
-      `${result.labs} labs`
+      `${result.labs} labs, ${result.surgeryTypes} surgery types, ${result.sundayTasks} sunday tasks`
   );
   console.log('Seed complete');
   process.exit(0);

@@ -1,0 +1,18 @@
+export const inventoryCategories = [
+  { name: 'Surgical Gloves', unit: 'Box' },
+  { name: 'Syringes & Needles', unit: 'Box' },
+  { name: 'Local Anaesthetics', unit: 'Box' },
+  { name: 'Dental Burs & Drills', unit: 'Piece' },
+  { name: 'Composite Resins', unit: 'Syringe' },
+  { name: 'Impression Materials', unit: 'Pack' },
+  { name: 'Sterilisation Pouches', unit: 'Roll' },
+  { name: 'Face Masks', unit: 'Box' },
+  { name: 'Cotton Rolls & Gauze', unit: 'Pack' },
+  { name: 'GIC Cement', unit: 'Pack' },
+  { name: 'Orthodontic Brackets', unit: 'Kit' },
+  { name: 'Dental Floss', unit: 'Roll' },
+  { name: 'X-Ray Films', unit: 'Pack' },
+  { name: 'Antibiotics', unit: 'Strip' },
+  { name: 'Analgesics', unit: 'Strip' },
+  { name: 'Antiseptic Solution', unit: 'Bottle' },
+];

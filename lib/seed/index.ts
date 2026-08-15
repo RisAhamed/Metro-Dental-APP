@@ -4,11 +4,16 @@ import { medicalConditions } from '@/lib/db/schema/medicalConditions';
 import { appointmentCategories } from '@/lib/db/schema/appointmentCategories';
 import { patientGroups } from '@/lib/db/schema/patientGroups';
 import { labs } from '@/lib/db/schema/labs';
+import { surgeryTypes } from '@/lib/db/schema/surgeryTypes';
+import { sundayTasks } from '@/lib/db/schema/sundayTasks';
 import { defaultAppointmentCategories } from './appointmentCategories';
 import { defaultReferralSources } from './referralSources';
 import { defaultMedicalConditions } from './medicalConditions';
 import { defaultPatientGroups } from './patientGroups';
 import { defaultLabs } from './labs';
+import { defaultSurgeryTypes } from './surgeryTypes';
+import { defaultSundayTasks } from './sundayTasks';
+import { inventoryCategories } from './inventoryCategories';
 import { sql } from 'drizzle-orm';
 
 export const slugify = (name: string) => name.toLowerCase().replace(/[^a-z0-9]/g, '-');
@@ -97,14 +102,65 @@ export async function seedLabs(createdBy = 'system') {
   return seeded;
 }
 
-export async function seedAllData(clinicId: string, createdBy = 'system') {
-  const [referrals, conditions, categories, groups, labCount] = await Promise.all([
-    seedReferralSources(),
-    seedMedicalConditions(),
-    seedAppointmentCategories(clinicId),
-    seedPatientGroups(clinicId, createdBy),
-    seedLabs(createdBy),
-  ]);
+export async function seedSurgeryTypes() {
+  for (const st of defaultSurgeryTypes) {
+    await db
+      .insert(surgeryTypes)
+      .values({ id: st.id, name: st.name, isActive: true })
+      .onConflictDoNothing();
+  }
+  return defaultSurgeryTypes.length;
+}
 
-  return { referrals, conditions, categories, groups, labs: labCount };
+export async function seedSundayTasks(createdBy = 'system') {
+  for (const task of defaultSundayTasks) {
+    await db
+      .insert(sundayTasks)
+      .values({
+        id: task.id,
+        name: task.name,
+        amount: task.amount,
+        isActive: true,
+        description: task.description,
+        createdBy,
+      })
+      .onConflictDoNothing();
+  }
+  return defaultSundayTasks.length;
+}
+
+export async function seedInventoryCategories() {
+  for (const cat of inventoryCategories) {
+    await db.execute(
+      sql`INSERT INTO inventory_categories (id, name, unit, is_active)
+          VALUES (${slugify(cat.name)}, ${cat.name}, ${cat.unit}, true)
+          ON CONFLICT (id) DO NOTHING`
+    );
+  }
+  return inventoryCategories.length;
+}
+
+export async function seedAllData(clinicId: string, createdBy = 'system') {
+  const [referrals, conditions, categories, groups, labCount, surgeryCount, taskCount, invCategories] =
+    await Promise.all([
+      seedReferralSources(),
+      seedMedicalConditions(),
+      seedAppointmentCategories(clinicId),
+      seedPatientGroups(clinicId, createdBy),
+      seedLabs(createdBy),
+      seedSurgeryTypes(),
+      seedSundayTasks(),
+      seedInventoryCategories(),
+    ]);
+
+  return {
+    referrals,
+    conditions,
+    categories,
+    groups,
+    labs: labCount,
+    surgeryTypes: surgeryCount,
+    sundayTasks: taskCount,
+    inventoryCategories: invCategories,
+  };
 }

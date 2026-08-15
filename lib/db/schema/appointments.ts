@@ -1,5 +1,5 @@
 import { cockroachTable as table } from './cockroachTable';
-import { text, timestamp, integer, boolean, pgEnum } from 'drizzle-orm/pg-core';
+import { text, timestamp, integer, boolean, numeric, pgEnum } from 'drizzle-orm/pg-core';
 
 export const apptStatusEnum = pgEnum('appt_status', [
   'SCHEDULED',
@@ -29,6 +29,13 @@ export const appointments = table('appointments', {
   plannedProcedures: text('planned_procedures'),
   notes: text('notes'),
   visitId: text('visit_id'),
+  // Referral / surgery fields (referral incentive trigger)
+  surgeryTypeId: text('surgery_type_id'),
+  surgeryTypeName: text('surgery_type_name'),
+  referredById: text('referred_by_id'),
+  referredByName: text('referred_by_name'),
+  isReferral: boolean('is_referral').default(false),
+  chiefDoctorRevenue: numeric('chief_doctor_revenue', { precision: 12, scale: 2 }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   createdBy: text('created_by').notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
