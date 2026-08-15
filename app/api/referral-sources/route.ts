@@ -8,17 +8,20 @@ import { eq } from 'drizzle-orm';
 const slugify = (name: string) =>
   name.toLowerCase().replace(/[^a-z0-9]/g, '-');
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const { sessionClaims } = await auth();
   if (!canManageLookups(sessionClaims)) {
     return NextResponse.json({ error: 'Unauthorized - Staff only' }, { status: 403 });
   }
 
+  const { searchParams } = new URL(req.url);
+  const all = searchParams.get('all') === 'true';
+
   try {
     const results = await db
       .select()
       .from(referralSources)
-      .where(eq(referralSources.isActive, true))
+      .where(all ? undefined : eq(referralSources.isActive, true))
       .orderBy(referralSources.name);
 
     return NextResponse.json({ sources: results });
@@ -62,5 +65,60 @@ export async function POST(req: NextRequest) {
       { error: err.message || 'Failed to create referral source' },
       { status: 500 }
     );
+  }
+}
+
+export async function PATCH(req: NextRequest) {
+  const { sessionClaims, userId } = await auth();
+  if (!canManageLookups(sessionClaims) || !userId) {
+    return NextResponse.json({ error: 'Unauthorized - Staff only' }, { status: 403 });
+  }
+
+  const body = await req.json();
+  const { id, name, isActive } = body;
+
+  if (!id) {
+    return NextResponse.json({ error: 'Missing id' }, { status: 400 });
+  }
+
+  try {
+    await db
+      .update(referralSources)
+      .set({
+        name: name !== undefined ? name : undefined,
+        isActive: isActive !== undefined ? Boolean(isActive) : undefined,
+      })
+      .where(eq(referralSources.id, id));
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Update Referral Source Error:', error);
+    return NextResponse.json({ error: 'Failed to update referral source' }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  const { sessionClaims, userId } = await auth();
+  if (!canManageLookups(sessionClaims) || !userId) {
+    return NextResponse.json({ error: 'Unauthorized - Staff only' }, { status: 403 });
+  }
+
+  const { searchParams } = new URL(req.url);
+  const id = searchParams.get('id');
+
+  if (!id) {
+    return NextResponse.json({ error: 'Missing id' }, { status: 400 });
+  }
+
+  try {
+    await db
+      .update(referralSources)
+      .set({ isActive: false })
+      .where(eq(referralSources.id, id));
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Delete Referral Source Error:', error);
+    return NextResponse.json({ error: 'Failed to delete referral source' }, { status: 500 });
   }
 }

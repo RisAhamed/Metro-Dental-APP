@@ -6,6 +6,7 @@ import { labBilling } from '@/lib/db/schema/labBilling';
 import { users } from '@/lib/db/schema/users';
 import { isStaff, isDoctor } from '@/lib/auth/claims';
 import { eq, and, desc, sql } from 'drizzle-orm';
+import { logActivity } from '@/lib/activity';
 
 type LabOrderStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
 
@@ -163,6 +164,18 @@ export async function POST(req: NextRequest) {
       clinicApproved: false,
       paymentHistory: [],
     }).onConflictDoNothing();
+
+    await logActivity({
+      clinicId,
+      type: 'LAB_ORDER_SENT',
+      message: `Lab order ${orderId} sent to ${labName} for patient ${patientName}`,
+      userId,
+      userName: doctorName,
+      userRole: (sessionClaims?.role as string) || undefined,
+      relatedEntityType: 'lab_order',
+      relatedEntityId: orderId,
+      metadata: { labId, patientId },
+    });
 
     return NextResponse.json({
       success: true,

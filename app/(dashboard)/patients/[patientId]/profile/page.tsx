@@ -15,6 +15,7 @@ import {
   Stethoscope,
   User,
   ArrowLeft,
+  DollarSign,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -56,7 +57,18 @@ interface Group {
   name: string;
 }
 
-const TABS = ['Overview', 'Medical History', 'Groups'];
+interface Payment {
+  paymentId: string;
+  amount: string;
+  mode: string;
+  date: string;
+  recordedByName: string;
+  notes: string | null;
+}
+
+const PAYMENT_MODES = ['CASH', 'GPAY', 'PAYTM', 'DEBIT_CARD', 'CREDIT_CARD', 'OTHER'];
+
+const TABS = ['Overview', 'Medical History', 'Groups', 'Payments'];
 
 const InfoItem = ({
   icon: Icon,
@@ -85,6 +97,16 @@ export default function PatientProfilePage() {
   const [activeTab, setActiveTab] = useState('Overview');
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [savingPayment, setSavingPayment] = useState(false);
+  const [paymentError, setPaymentError] = useState('');
+  const [paymentForm, setPaymentForm] = useState({
+    amount: '',
+    mode: 'CASH',
+    date: new Date().toISOString().slice(0, 10),
+    notes: '',
+  });
 
   const patientId = Array.isArray(params.patientId)
     ? params.patientId[0]
@@ -119,6 +141,62 @@ export default function PatientProfilePage() {
 
     if (patientId) load();
   }, [patientId, clinicId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadPayments = async () => {
+      try {
+        const res = await fetch(`/api/payments?patientId=${patientId}`);
+        const data = await res.json();
+        if (!cancelled) setPayments(data.payments || []);
+      } catch (error) {
+        console.error('Error loading payments:', error);
+      }
+    };
+    if (patientId) loadPayments();
+    return () => {
+      cancelled = true;
+    };
+  }, [patientId]);
+
+  const handleSavePayment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!patient) return;
+    setSavingPayment(true);
+    setPaymentError('');
+    try {
+      const res = await fetch('/api/payments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          patientId: patient.patientId,
+          patientName: patient.name,
+          clinicId: patient.registeredClinicId,
+          amount: paymentForm.amount,
+          mode: paymentForm.mode,
+          date: paymentForm.date,
+          notes: paymentForm.notes || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setShowPaymentModal(false);
+        setPaymentForm({ amount: '', mode: 'CASH', date: new Date().toISOString().slice(0, 10), notes: '' });
+        const payRes = await fetch(`/api/payments?patientId=${patient.patientId}`);
+        const payData = await payRes.json();
+        setPayments(payData.payments || []);
+        const patientRes = await fetch(`/api/patients/${patient.patientId}`);
+        const patientData = await patientRes.json();
+        if (patientRes.ok) setPatient(patientData.patient);
+      } else {
+        setPaymentError(data.error || 'Failed to record payment');
+      }
+    } catch (error) {
+      setPaymentError('Failed to record payment');
+    } finally {
+      setSavingPayment(false);
+    }
+  };
 
   const groupNamesById = groups.reduce<Record<string, string>>((acc, g) => {
     acc[g.id] = g.name;
@@ -210,6 +288,12 @@ export default function PatientProfilePage() {
                   </span>
                 </p>
               </div>
+              <button
+                onClick={() => setShowPaymentModal(true)}
+                className="mt-3 px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"
+              >
+                Record Payment
+              </button>
             </div>
           </div>
 
@@ -320,7 +404,118 @@ export default function PatientProfilePage() {
             )}
           </div>
         )}
+
+        {activeTab === 'Payments' && (
+          <div>
+            <h3 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
+              <DollarSign className="h-5 w-5 text-green-500" /> Payment History
+            </h3>
+            {payments.length === 0 ? (
+              <p className="text-sm text-gray-500">No payments recorded yet.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Mode</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Recorded By</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Notes</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {payments.map((p) => (
+                      <tr key={p.paymentId}>
+                        <td className="px-4 py-2 text-sm text-gray-700">{formatDate(p.date)}</td>
+                        <td className="px-4 py-2 text-sm font-semibold text-gray-900">
+                          ₹{Number(p.amount || 0).toFixed(2)}
+                        </td>
+                        <td className="px-4 py-2 text-sm text-gray-500">{p.mode}</td>
+                        <td className="px-4 py-2 text-sm text-gray-500">{p.recordedByName}</td>
+                        <td className="px-4 py-2 text-sm text-gray-500">{p.notes || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
       </div>
+
+      {/* Record Payment Modal */}
+      {showPaymentModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
+            <h2 className="text-xl font-bold mb-4">Record Payment</h2>
+            <form onSubmit={handleSavePayment} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Amount (₹) *</label>
+                <input
+                  type="number"
+                  required
+                  min="0"
+                  step="0.01"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={paymentForm.amount}
+                  onChange={(e) => setPaymentForm({ ...paymentForm, amount: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Mode *</label>
+                <select
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={paymentForm.mode}
+                  onChange={(e) => setPaymentForm({ ...paymentForm, mode: e.target.value })}
+                >
+                  {PAYMENT_MODES.map((m) => (
+                    <option key={m} value={m}>
+                      {m}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Date *</label>
+                <input
+                  type="date"
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={paymentForm.date}
+                  onChange={(e) => setPaymentForm({ ...paymentForm, date: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                <textarea
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  rows={2}
+                  value={paymentForm.notes}
+                  onChange={(e) => setPaymentForm({ ...paymentForm, notes: e.target.value })}
+                />
+              </div>
+              {paymentError && <p className="text-sm text-red-600">{paymentError}</p>}
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowPaymentModal(false)}
+                  className="px-4 py-2 border border-gray-300 rounded-md text-sm hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingPayment}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {savingPayment ? 'Saving...' : 'Save Payment'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

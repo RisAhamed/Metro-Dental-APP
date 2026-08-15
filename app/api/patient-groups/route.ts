@@ -15,10 +15,12 @@ export async function GET(req: NextRequest) {
   }
 
   const { searchParams } = new URL(req.url);
-  const clinicId =
-    searchParams.get('clinicId') ||
-    (sessionClaims?.primaryClinicId as string) ||
-    undefined;
+  const all = searchParams.get('all') === 'true';
+  const clinicId = all
+    ? undefined
+    : searchParams.get('clinicId') ||
+      (sessionClaims?.primaryClinicId as string) ||
+      undefined;
 
   try {
     const results = await db
@@ -77,6 +79,44 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
+  const { sessionClaims, userId } = await auth();
+  if (!canManageLookups(sessionClaims) || !userId) {
+    return NextResponse.json({ error: 'Unauthorized - Staff only' }, { status: 403 });
+  }
+
+  const body = await req.json();
+  const { id, name } = body;
+
+  if (!id || !name) {
+    return NextResponse.json(
+      { error: 'Missing required fields: id, name' },
+      { status: 400 }
+    );
+  }
+
+  try {
+    await db
+      .update(patientGroups)
+      .set({ name: name.toUpperCase() })
+      .where(eq(patientGroups.id, id));
+    return NextResponse.json({ success: true });
+  } catch (error: unknown) {
+    const err = error as { code?: string; message?: string };
+    if (err.code === '23505') {
+      return NextResponse.json(
+        { error: 'A group with this name already exists' },
+        { status: 409 }
+      );
+    }
+    console.error('Rename Group Error:', error);
+    return NextResponse.json(
+      { error: err.message || 'Failed to rename group' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PATCH(req: NextRequest) {
   const { sessionClaims, userId } = await auth();
   if (!canManageLookups(sessionClaims) || !userId) {
     return NextResponse.json({ error: 'Unauthorized - Staff only' }, { status: 403 });

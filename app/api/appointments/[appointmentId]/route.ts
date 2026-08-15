@@ -5,6 +5,8 @@ import { appointments, apptStatusEnum } from '@/lib/db/schema/appointments';
 import { isStaff, isSuperAdmin } from '@/lib/auth/claims';
 import { eq } from 'drizzle-orm';
 import { createIncentive } from '@/lib/payroll/incentives';
+import { users } from '@/lib/db/schema/users';
+import { logActivity } from '@/lib/activity';
 
 const REFERRAL_MIN_REVENUE = 20000;
 
@@ -61,6 +63,42 @@ export async function PATCH(
       .update(appointments)
       .set(updateFields)
       .where(eq(appointments.appointmentId, appointmentId));
+
+    // Log check-in / completion activity
+    if (status === 'IN_PROGRESS' || status === 'COMPLETED') {
+      const userSnap = await db
+        .select({ name: users.name })
+        .from(users)
+        .where(eq(users.uid, userId))
+        .limit(1);
+      const actorName = userSnap[0]?.name || 'Staff';
+
+      if (status === 'IN_PROGRESS') {
+        await logActivity({
+          clinicId: existing.clinicId,
+          type: 'PATIENT_CHECKIN',
+          message: `${existing.patientName} checked in for appointment ${appointmentId}`,
+          userId,
+          userName: actorName,
+          userRole: (sessionClaims?.role as string) || undefined,
+          relatedEntityType: 'appointment',
+          relatedEntityId: appointmentId,
+          metadata: { patientId: existing.patientId },
+        });
+      } else if (status === 'COMPLETED') {
+        await logActivity({
+          clinicId: existing.clinicId,
+          type: 'APPOINTMENT_COMPLETED',
+          message: `Appointment for ${existing.patientName} completed with ${existing.doctorName}`,
+          userId,
+          userName: actorName,
+          userRole: (sessionClaims?.role as string) || undefined,
+          relatedEntityType: 'appointment',
+          relatedEntityId: appointmentId,
+          metadata: { patientId: existing.patientId },
+        });
+      }
+    }
 
     const newStatus = status || existing.status;
     const newRevenue =

@@ -6,6 +6,7 @@ import { labBilling as labBillingTable } from '@/lib/db/schema/labBilling';
 import { users } from '@/lib/db/schema/users';
 import { eq } from 'drizzle-orm';
 import { notifyUser } from '@/lib/notifications';
+import { logActivity } from '@/lib/activity';
 
 export async function POST(
   req: NextRequest,
@@ -112,6 +113,18 @@ export async function POST(
       message: `Stage for patient ${order.patientName} completed by ${order.labName}`,
       link: `/lab-orders/${orderId}`,
       clinicId: order.clinicId,
+    });
+
+    await logActivity({
+      clinicId: order.clinicId,
+      type: 'LAB_STAGE_COMPLETED',
+      message: `Stage "${stage.stageName}" completed for lab order ${orderId} (${order.labName}, patient ${order.patientName})`,
+      userId: userId || '',
+      userName: labTechName,
+      userRole: role,
+      relatedEntityType: 'lab_order',
+      relatedEntityId: orderId,
+      metadata: { stageId, stageName: stage.stageName, stageCost: stageCost ?? null },
     });
 
     return NextResponse.json({

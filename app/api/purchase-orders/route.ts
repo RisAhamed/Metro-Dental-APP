@@ -5,6 +5,8 @@ import { purchaseOrders } from '@/lib/db/schema/purchaseOrders';
 import { canManageInventory } from '@/lib/auth/claims';
 import { eq, and, desc, sql } from 'drizzle-orm';
 import type { POLineItem } from '@/lib/db/schema/purchaseOrders';
+import { users } from '@/lib/db/schema/users';
+import { logActivity } from '@/lib/activity';
 
 export async function GET(req: NextRequest) {
   const { sessionClaims } = await auth();
@@ -104,6 +106,26 @@ export async function POST(req: NextRequest) {
       paymentHistory: [],
       notes: notes || null,
       createdBy: userId,
+    });
+
+    let userName = 'Unknown';
+    const poUserSnap = await db
+      .select({ name: users.name })
+      .from(users)
+      .where(eq(users.uid, userId))
+      .limit(1);
+    if (poUserSnap[0]?.name) userName = poUserSnap[0].name;
+
+    await logActivity({
+      clinicId: sharedClinicId === 'shared' ? 'clinic_a' : sharedClinicId,
+      type: 'PURCHASE_ORDER_PLACED',
+      message: `Purchase order ${poNumber} placed with ${vendorName} (₹${totalOrderAmount.toLocaleString('en-IN')})`,
+      userId,
+      userName: userName,
+      userRole: (sessionClaims?.role as string) || undefined,
+      relatedEntityType: 'purchase_order',
+      relatedEntityId: orderId,
+      metadata: { vendorId, totalOrderAmount, lineItemCount: items.length },
     });
 
     return NextResponse.json({

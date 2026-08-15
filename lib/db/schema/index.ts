@@ -28,4 +28,6 @@ export * from './inventoryItems';
 export * from './inventoryCategories';
 export * from './inventoryConsumptions';
 export * from './purchaseOrders';
+export * from './patientPayments';
+export * from './activityLogs';
 export * from './counters';

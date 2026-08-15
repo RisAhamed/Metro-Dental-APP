@@ -13,9 +13,10 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
   const clinicId = searchParams.get('clinicId');
+  const all = searchParams.get('all') === 'true';
 
   try {
-    const conditions = [eq(appointmentCategories.isActive, true)];
+    const conditions = all ? [] : [eq(appointmentCategories.isActive, true)];
 
     if (clinicId) {
       conditions.push(eq(appointmentCategories.clinicId, clinicId));
@@ -68,5 +69,71 @@ export async function POST(req: NextRequest) {
       { error: 'Failed to create category' },
       { status: 500 }
     );
+  }
+}
+
+export async function PATCH(req: NextRequest) {
+  const { sessionClaims, userId } = await auth();
+  if (!isStaff(sessionClaims) || !userId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+  }
+
+  const role = (sessionClaims?.role as string) || '';
+  if (!['SUPER_ADMIN', 'CLINIC_ADMIN'].includes(role)) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  const body = await req.json();
+  const { id, name, color, isActive } = body;
+
+  if (!id) {
+    return NextResponse.json({ error: 'Missing id' }, { status: 400 });
+  }
+
+  try {
+    await db
+      .update(appointmentCategories)
+      .set({
+        name: name !== undefined ? String(name).toUpperCase() : undefined,
+        color: color !== undefined ? color : undefined,
+        isActive: isActive !== undefined ? Boolean(isActive) : undefined,
+      })
+      .where(eq(appointmentCategories.id, id));
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Update Category Error:', error);
+    return NextResponse.json({ error: 'Failed to update category' }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  const { sessionClaims, userId } = await auth();
+  if (!isStaff(sessionClaims) || !userId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+  }
+
+  const role = (sessionClaims?.role as string) || '';
+  if (!['SUPER_ADMIN', 'CLINIC_ADMIN'].includes(role)) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  const { searchParams } = new URL(req.url);
+  const id = searchParams.get('id');
+
+  if (!id) {
+    return NextResponse.json({ error: 'Missing id' }, { status: 400 });
+  }
+
+  try {
+    await db
+      .update(appointmentCategories)
+      .set({ isActive: false })
+      .where(eq(appointmentCategories.id, id));
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Delete Category Error:', error);
+    return NextResponse.json({ error: 'Failed to delete category' }, { status: 500 });
   }
 }
