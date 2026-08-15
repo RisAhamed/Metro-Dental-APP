@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
+import { useMobile } from '@/hooks/useMobile';
 import {
   format,
   startOfWeek,
@@ -66,7 +67,7 @@ export default function CalendarPage() {
   const { sessionClaims } = useAuth();
   const router = useRouter();
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [view, setView] = useState<'day' | 'week' | 'month'>('week');
+  const [view, setView] = useState<'day' | 'week' | 'month'>('day');
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [selectedDoctor, setSelectedDoctor] = useState<string>('all');
@@ -80,6 +81,14 @@ export default function CalendarPage() {
   const [reminders, setReminders] = useState<Reminder[]>([]);
 
   const clinicId = (sessionClaims?.primaryClinicId as string) || 'clinic_a';
+  const isMobile = useMobile();
+
+  useEffect(() => {
+    if (!isMobile && view === 'day') {
+      const t = setTimeout(() => setView('week'), 0);
+      return () => clearTimeout(t);
+    }
+  }, [isMobile, view]);
 
   useEffect(() => {
     let cancelled = false;

@@ -3,7 +3,16 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@clerk/nextjs';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, CheckCircle, Loader } from 'lucide-react';
+import {
+  ArrowLeft,
+  CheckCircle,
+  Loader,
+  AlertTriangle,
+  AlertOctagon,
+  Undo2,
+  AlertCircle,
+  X,
+} from 'lucide-react';
 
 interface Stage {
   stageId: string;
@@ -29,6 +38,7 @@ interface LabOrder {
   workDescription: string;
   stages: Stage[];
   status: string;
+  issues?: Issue[];
 }
 
 interface StageCost {
@@ -43,6 +53,39 @@ interface LabBilling {
   paymentStatus: string;
   stageCosts: StageCost[];
 }
+
+interface Issue {
+  issueId: string;
+  issueType: 'DEFECTIVE' | 'RETURNED' | 'ERROR' | 'OTHER';
+  message: string;
+  status: 'OPEN' | 'RESOLVED';
+  reportedByName: string;
+  reportedAt: string;
+  resolvedByName: string | null;
+  resolvedAt: string | null;
+  resolutionNote: string | null;
+}
+
+const ISSUE_ICONS: Record<string, typeof AlertTriangle> = {
+  DEFECTIVE: AlertTriangle,
+  RETURNED: Undo2,
+  ERROR: AlertOctagon,
+  OTHER: AlertCircle,
+};
+
+const ISSUE_LABELS: Record<string, string> = {
+  DEFECTIVE: 'Defective',
+  RETURNED: 'Returned',
+  ERROR: 'Error',
+  OTHER: 'Other',
+};
+
+const ISSUE_TYPES = [
+  { value: 'DEFECTIVE', label: 'Defective work' },
+  { value: 'RETURNED', label: 'Returned for rework' },
+  { value: 'ERROR', label: 'Error in order' },
+  { value: 'OTHER', label: 'Other' },
+];
 
 const STATUS_COLORS: Record<string, string> = {
   PENDING: 'bg-yellow-500',
@@ -62,6 +105,11 @@ export default function LabOrderDetailPage() {
   const [order, setOrder] = useState<LabOrder | null>(null);
   const [billing, setBilling] = useState<LabBilling | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const [showIssueModal, setShowIssueModal] = useState(false);
+  const [issueType, setIssueType] = useState('DEFECTIVE');
+  const [issueMessage, setIssueMessage] = useState('');
+  const [submittingIssue, setSubmittingIssue] = useState(false);
 
   const role = (sessionClaims?.role as string) || '';
   const isDoctor = ['SUPER_ADMIN', 'CLINIC_ADMIN', 'GENERAL_DOCTOR'].includes(role);
@@ -102,6 +150,38 @@ export default function LabOrderDetailPage() {
       cancelled = true;
     };
   }, [params.orderId, isDoctor]);
+
+  const handleSubmitIssue = async () => {
+    if (!issueMessage.trim()) {
+      alert('Please enter a description for the issue.');
+      return;
+    }
+    setSubmittingIssue(true);
+    try {
+      const res = await fetch(`/api/lab-orders/${params.orderId}/issues`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          issueType,
+          message: issueMessage.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alert('Issue reported to the lab.');
+        setShowIssueModal(false);
+        setIssueType('DEFECTIVE');
+        setIssueMessage('');
+      } else {
+        alert(data.error || 'Failed to report issue.');
+      }
+    } catch (error) {
+      console.error('Error reporting issue:', error);
+      alert('An error occurred. Please try again.');
+    } finally {
+      setSubmittingIssue(false);
+    }
+  };
 
   if (loading) {
     return <div className="text-center py-12 text-gray-500">Loading...</div>;
@@ -216,6 +296,77 @@ export default function LabOrderDetailPage() {
         </div>
       </div>
 
+      {/* Issues */}
+      <div className="bg-white rounded-lg shadow p-6 mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold">Issues & Feedback</h2>
+          <button
+            onClick={() => setShowIssueModal(true)}
+            className="px-4 py-2 bg-red-600 text-white rounded-md text-sm hover:bg-red-700"
+          >
+            Report Issue
+          </button>
+        </div>
+        {(order.issues || []).length === 0 ? (
+          <p className="text-sm text-gray-500">No issues reported.</p>
+        ) : (
+          <div className="space-y-3">
+            {(order.issues as Issue[]).map((issue) => {
+              const Icon = ISSUE_ICONS[issue.issueType] || AlertTriangle;
+              const resolved = issue.status === 'RESOLVED';
+              return (
+                <div
+                  key={issue.issueId}
+                  className={`border rounded-md p-4 ${
+                    resolved ? 'border-gray-200 bg-gray-50' : 'border-red-200 bg-red-50'
+                  }`}
+                >
+                  <div className="flex items-start gap-2">
+                    <Icon
+                      className={`h-5 w-5 mt-0.5 flex-shrink-0 ${
+                        resolved ? 'text-gray-400' : 'text-red-600'
+                      }`}
+                    />
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span
+                          className={`px-2 py-0.5 text-xs rounded-full ${
+                            resolved ? 'bg-gray-100 text-gray-600' : 'bg-red-100 text-red-700'
+                          }`}
+                        >
+                          {ISSUE_LABELS[issue.issueType] || issue.issueType}
+                        </span>
+                        <span
+                          className={`px-2 py-0.5 text-xs rounded-full ${
+                            resolved ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
+                          }`}
+                        >
+                          {issue.status}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-800 mt-2">{issue.message}</p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Reported by {issue.reportedByName} on{' '}
+                        {new Date(issue.reportedAt).toLocaleString()}
+                      </p>
+                      {resolved && issue.resolvedByName && (
+                        <p className="text-xs text-green-600 mt-1">
+                          Resolved by {issue.resolvedByName}
+                          {issue.resolvedAt
+                            ? ` on ${new Date(issue.resolvedAt).toLocaleString()}`
+                            : ''}
+                          {issue.resolutionNote ? ` — ${issue.resolutionNote}` : ''}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
       {billing && (
         <div className="bg-white rounded-lg shadow p-6">
           <h2 className="text-lg font-semibold mb-4">Lab Billing</h2>
@@ -254,6 +405,71 @@ export default function LabOrderDetailPage() {
               </table>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Report Issue Modal */}
+      {showIssueModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold">Report Issue</h2>
+              <button
+                onClick={() => setShowIssueModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Issue Type
+                </label>
+                <select
+                  value={issueType}
+                  onChange={(e) => setIssueType(e.target.value)}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                >
+                  {ISSUE_TYPES.map((t) => (
+                    <option key={t.value} value={t.value}>
+                      {t.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Description
+                </label>
+                <textarea
+                  value={issueMessage}
+                  onChange={(e) => setIssueMessage(e.target.value)}
+                  rows={4}
+                  placeholder="Describe the issue with this lab order..."
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  onClick={() => setShowIssueModal(false)}
+                  className="px-4 py-2 border border-gray-300 rounded-md text-sm hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSubmitIssue}
+                  disabled={submittingIssue}
+                  className="px-4 py-2 bg-red-600 text-white rounded-md text-sm hover:bg-red-700 disabled:opacity-50"
+                >
+                  {submittingIssue ? 'Reporting...' : 'Report Issue'}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

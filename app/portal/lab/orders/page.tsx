@@ -2,15 +2,18 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@clerk/nextjs';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { FlaskConical } from 'lucide-react';
+import { FlaskConical, AlertTriangle } from 'lucide-react';
 
 interface LabOrder {
   orderId: string;
+  clinicId: string;
   patientName: string;
   workDescription: string;
   status: string;
   stages: Array<{ status: string }>;
+  issues: Array<{ status: string }>;
   createdAt: string;
 }
 
@@ -27,8 +30,12 @@ function statusColor(status: string): string {
 
 export default function LabPortalOrdersPage() {
   const { sessionClaims } = useAuth();
+  const searchParams = useSearchParams();
   const [orders, setOrders] = useState<LabOrder[]>([]);
   const [loading, setLoading] = useState(true);
+  const [clinicId, setClinicId] = useState(
+    searchParams.get('clinicId') || 'both'
+  );
 
   const role = (sessionClaims?.role as string) || '';
   const isLabTech = role === 'LAB_TECHNICIAN';
@@ -39,8 +46,9 @@ export default function LabPortalOrdersPage() {
     const load = async () => {
       setLoading(true);
       try {
-        // Backend resolves the lab tech's lab automatically; no labId needed.
-        const res = await fetch('/api/lab-orders');
+        const params = new URLSearchParams();
+        if (clinicId !== 'both') params.set('clinicId', clinicId);
+        const res = await fetch(`/api/lab-orders?${params.toString()}`);
         const data = await res.json();
         if (!cancelled) setOrders(data.orders || []);
       } catch (error) {
@@ -53,12 +61,27 @@ export default function LabPortalOrdersPage() {
     return () => {
       cancelled = true;
     };
-  }, [isLabTech]);
+  }, [isLabTech, clinicId]);
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
         <h1 className="text-2xl font-bold">Lab Orders</h1>
+        <div className="flex items-center gap-2">
+          {(['both', 'clinic_a', 'clinic_b'] as const).map((c) => (
+            <button
+              key={c}
+              onClick={() => setClinicId(c)}
+              className={`px-3 py-1.5 text-sm rounded-md ${
+                clinicId === c
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
+              }`}
+            >
+              {c === 'both' ? 'Both' : c === 'clinic_a' ? 'Clinic A' : 'Clinic B'}
+            </button>
+          ))}
+        </div>
       </div>
 
       {loading ? (
@@ -75,6 +98,9 @@ export default function LabPortalOrdersPage() {
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                   Order
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  Clinic
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                   Patient
@@ -96,15 +122,30 @@ export default function LabPortalOrdersPage() {
                   (s) => s.status === 'COMPLETED'
                 ).length;
                 const totalStages = order.stages.length;
+                const openIssues = (order.issues || []).filter(
+                  (i) => i.status === 'OPEN'
+                ).length;
                 return (
                   <tr key={order.orderId} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <Link
                         href={`/portal/lab/orders/${order.orderId}`}
-                        className="text-blue-600 hover:underline"
+                        className="text-blue-600 hover:underline flex items-center gap-1.5"
                       >
                         {order.orderId}
+                        {openIssues > 0 && (
+                          <span
+                            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] rounded-full bg-red-100 text-red-700"
+                            title={`${openIssues} open issue(s)`}
+                          >
+                            <AlertTriangle className="h-3 w-3" />
+                            {openIssues}
+                          </span>
+                        )}
                       </Link>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                      {order.clinicId === 'clinic_a' ? 'Clinic A' : 'Clinic B'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {order.patientName}

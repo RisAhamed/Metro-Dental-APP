@@ -103,14 +103,23 @@ export function NotificationBell() {
         <div className="absolute right-0 mt-2 w-96 bg-white rounded-lg shadow-xl border border-gray-200 z-50">
           <div className="flex items-center justify-between p-4 border-b border-gray-200">
             <h3 className="font-semibold text-gray-800">Notifications</h3>
-            {unread > 0 && (
-              <button
-                onClick={markAllRead}
+            <div className="flex items-center gap-3">
+              {unread > 0 && (
+                <button
+                  onClick={markAllRead}
+                  className="text-xs text-blue-600 hover:underline"
+                >
+                  Mark all read
+                </button>
+              )}
+              <Link
+                href="/notifications"
+                onClick={() => setOpen(false)}
                 className="text-xs text-blue-600 hover:underline"
               >
-                Mark all read
-              </button>
-            )}
+                View all
+              </Link>
+            </div>
           </div>
           <div className="max-h-96 overflow-y-auto">
             {loading ? (

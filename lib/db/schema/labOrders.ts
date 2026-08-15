@@ -44,6 +44,23 @@ export const labOrders = table('lab_orders', {
     .default([]),
   status: labOrderStatusEnum('status').default('PENDING').notNull(),
   attachmentFileIds: text('attachment_file_ids').array().default([]),
+  issues: jsonb('issues')
+    .$type<
+      Array<{
+        issueId: string;
+        issueType: 'DEFECTIVE' | 'RETURNED' | 'ERROR' | 'OTHER';
+        message: string;
+        status: 'OPEN' | 'RESOLVED';
+        reportedBy: string;
+        reportedByName: string;
+        reportedAt: string;
+        resolvedBy: string | null;
+        resolvedByName: string | null;
+        resolvedAt: string | null;
+        resolutionNote: string | null;
+      }>
+    >()
+    .default([]),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });

@@ -85,6 +85,13 @@
       "when": 1786792255666,
       "tag": "0011_spicy_texas_twister",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1786796491783,
+      "tag": "0012_thin_frightful_four",
+      "breakpoints": true
     }
   ]
 }

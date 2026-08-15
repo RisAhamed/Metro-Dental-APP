@@ -3,7 +3,15 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@clerk/nextjs';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, CheckCircle, Loader } from 'lucide-react';
+import {
+  ArrowLeft,
+  CheckCircle,
+  Loader,
+  AlertTriangle,
+  AlertOctagon,
+  Undo2,
+  AlertCircle,
+} from 'lucide-react';
 
 interface Stage {
   stageId: string;
@@ -16,25 +24,63 @@ interface Stage {
   notes: string | null;
 }
 
+interface Issue {
+  issueId: string;
+  issueType: 'DEFECTIVE' | 'RETURNED' | 'ERROR' | 'OTHER';
+  message: string;
+  status: 'OPEN' | 'RESOLVED';
+  reportedByName: string;
+  reportedAt: string;
+  resolvedByName: string | null;
+  resolvedAt: string | null;
+  resolutionNote: string | null;
+}
+
+interface Billing {
+  totalCost: string | number | null;
+  amountPaid: string | number | null;
+  paymentStatus: string;
+  stageCosts: Array<{ stageName: string; cost: number | string | null }>;
+}
+
 interface LabOrder {
   orderId: string;
   labName: string;
+  clinicId: string;
   patientName: string;
   orderedByDoctorName: string;
   workDescription: string;
   status: string;
   stages: Stage[];
+  issues: Issue[];
 }
+
+const ISSUE_ICONS: Record<string, typeof AlertTriangle> = {
+  DEFECTIVE: AlertTriangle,
+  RETURNED: Undo2,
+  ERROR: AlertOctagon,
+  OTHER: AlertCircle,
+};
+
+const ISSUE_LABELS: Record<string, string> = {
+  DEFECTIVE: 'Defective',
+  RETURNED: 'Returned',
+  ERROR: 'Error',
+  OTHER: 'Other',
+};
 
 export default function LabPortalOrderDetailPage() {
   const { sessionClaims } = useAuth();
   const params = useParams<{ orderId: string }>();
   const router = useRouter();
   const [order, setOrder] = useState<LabOrder | null>(null);
+  const [billing, setBilling] = useState<Billing | null>(null);
   const [loading, setLoading] = useState(true);
   const [completingStageId, setCompletingStageId] = useState<string | null>(null);
   const [stageNotes, setStageNotes] = useState<Record<string, string>>({});
   const [stageCosts, setStageCosts] = useState<Record<string, string>>({});
+  const [resolvingIssueId, setResolvingIssueId] = useState<string | null>(null);
+  const [resolutionNotes, setResolutionNotes] = useState<Record<string, string>>({});
 
   const role = (sessionClaims?.role as string) || '';
   const isLabTech = role === 'LAB_TECHNICIAN';
@@ -44,9 +90,16 @@ export default function LabPortalOrderDetailPage() {
     let cancelled = false;
     const load = async () => {
       try {
-        const res = await fetch(`/api/lab-orders/${params.orderId}`);
-        const data = await res.json();
-        if (!cancelled) setOrder(data.order);
+        const [orderRes, billingRes] = await Promise.all([
+          fetch(`/api/lab-orders/${params.orderId}`),
+          fetch(`/api/lab-orders/${params.orderId}/billing`),
+        ]);
+        const orderData = await orderRes.json();
+        const billingData = await billingRes.json();
+        if (!cancelled) {
+          setOrder(orderData.order);
+          setBilling(billingRes.ok ? billingData.billing : null);
+        }
       } catch (error) {
         console.error('Error fetching lab order:', error);
       } finally {
@@ -114,6 +167,54 @@ export default function LabPortalOrderDetailPage() {
     }
   };
 
+  const handleResolveIssue = async (issueId: string) => {
+    const confirmed = confirm('Mark this issue as resolved?');
+    if (!confirmed) return;
+
+    setResolvingIssueId(issueId);
+    try {
+      const res = await fetch(
+        `/api/lab-orders/${params.orderId}/issues/${issueId}/resolve`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            resolutionNote: resolutionNotes[issueId] || undefined,
+          }),
+        }
+      );
+
+      if (res.ok) {
+        setOrder((prev) =>
+          prev
+            ? {
+                ...prev,
+                issues: prev.issues.map((i) =>
+                  i.issueId === issueId
+                    ? {
+                        ...i,
+                        status: 'RESOLVED',
+                        resolvedByName: 'You',
+                        resolvedAt: new Date().toISOString(),
+                        resolutionNote: resolutionNotes[issueId] || null,
+                      }
+                    : i
+                ),
+              }
+            : prev
+        );
+      } else {
+        const error = await res.json();
+        alert(error.error || 'Failed to resolve issue');
+      }
+    } catch (error) {
+      console.error('Error resolving issue:', error);
+      alert('An error occurred. Please try again.');
+    } finally {
+      setResolvingIssueId(null);
+    }
+  };
+
   if (loading) {
     return <div className="text-center py-12 text-gray-500">Loading...</div>;
   }
@@ -132,6 +233,9 @@ export default function LabPortalOrderDetailPage() {
     );
   }
 
+  const openIssues = (order.issues || []).filter((i) => i.status === 'OPEN');
+  const nextStages = order.stages.filter((s) => s.status !== 'COMPLETED');
+
   return (
     <div className="max-w-4xl">
       <button
@@ -141,11 +245,15 @@ export default function LabPortalOrderDetailPage() {
         <ArrowLeft className="h-4 w-4" /> Back to Lab Orders
       </button>
 
+      {/* Order header */}
       <div className="bg-white rounded-lg shadow p-6 mb-6">
         <div className="flex items-start justify-between">
           <div>
             <h1 className="text-2xl font-bold">{order.orderId}</h1>
-            <p className="text-gray-500 text-sm mt-1">Lab: {order.labName}</p>
+            <p className="text-gray-500 text-sm mt-1">
+              Lab: {order.labName} •{' '}
+              {order.clinicId === 'clinic_a' ? 'Clinic A' : 'Clinic B'}
+            </p>
           </div>
           <span
             className={`px-3 py-1 text-xs rounded-full text-white ${
@@ -179,8 +287,110 @@ export default function LabPortalOrderDetailPage() {
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-lg font-semibold mb-4">Stages</h2>
+      {/* Issues panel */}
+      <div className="bg-white rounded-lg shadow p-6 mb-6">
+        <div className="flex items-center gap-2 mb-4">
+          <AlertTriangle className="h-5 w-5 text-red-600" />
+          <h2 className="text-lg font-semibold">
+            Issues & Feedback ({openIssues.length} open)
+          </h2>
+        </div>
+
+        {order.issues.length === 0 ? (
+          <p className="text-sm text-gray-500">No issues reported by doctors.</p>
+        ) : (
+          <div className="space-y-3">
+            {order.issues.map((issue) => {
+              const Icon = ISSUE_ICONS[issue.issueType] || AlertTriangle;
+              const resolved = issue.status === 'RESOLVED';
+              return (
+                <div
+                  key={issue.issueId}
+                  className={`border rounded-md p-4 ${
+                    resolved ? 'border-gray-200 bg-gray-50' : 'border-red-200 bg-red-50'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-2 min-w-0">
+                      <Icon
+                        className={`h-5 w-5 mt-0.5 flex-shrink-0 ${
+                          resolved ? 'text-gray-400' : 'text-red-600'
+                        }`}
+                      />
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span
+                            className={`px-2 py-0.5 text-xs rounded-full ${
+                              resolved
+                                ? 'bg-gray-100 text-gray-600'
+                                : 'bg-red-100 text-red-700'
+                            }`}
+                          >
+                            {ISSUE_LABELS[issue.issueType] || issue.issueType}
+                          </span>
+                          <span
+                            className={`px-2 py-0.5 text-xs rounded-full ${
+                              resolved
+                                ? 'bg-green-100 text-green-700'
+                                : 'bg-yellow-100 text-yellow-700'
+                            }`}
+                          >
+                            {issue.status}
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-800 mt-2">{issue.message}</p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Reported by {issue.reportedByName} on{' '}
+                          {new Date(issue.reportedAt).toLocaleString()}
+                        </p>
+                        {resolved && issue.resolvedByName && (
+                          <p className="text-xs text-green-600 mt-1">
+                            Resolved by {issue.resolvedByName}
+                            {issue.resolvedAt
+                              ? ` on ${new Date(issue.resolvedAt).toLocaleString()}`
+                              : ''}
+                            {issue.resolutionNote ? ` — ${issue.resolutionNote}` : ''}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {!resolved && (
+                    <div className="mt-3 flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="Resolution note (optional)"
+                        value={resolutionNotes[issue.issueId] || ''}
+                        onChange={(e) =>
+                          setResolutionNotes({
+                            ...resolutionNotes,
+                            [issue.issueId]: e.target.value,
+                          })
+                        }
+                        className="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm"
+                      />
+                      <button
+                        onClick={() => handleResolveIssue(issue.issueId)}
+                        disabled={resolvingIssueId === issue.issueId}
+                        className="px-4 py-2 bg-green-600 text-white rounded-md text-sm hover:bg-green-700 disabled:opacity-50"
+                      >
+                        {resolvingIssueId === issue.issueId ? 'Resolving...' : 'Mark Resolved'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Next stages */}
+      <div className="bg-white rounded-lg shadow p-6 mb-6">
+        <h2 className="text-lg font-semibold mb-1">
+          Stages to Complete ({nextStages.length} remaining)
+        </h2>
         <div className="space-y-4">
           {order.stages.map((stage) => {
             const completed = stage.status === 'COMPLETED';
@@ -256,6 +466,29 @@ export default function LabPortalOrderDetailPage() {
           })}
         </div>
       </div>
+
+      {/* Billing summary */}
+      {billing && (
+        <div className="bg-white rounded-lg shadow p-6">
+          <h2 className="text-lg font-semibold mb-4">Billing</h2>
+          <dl className="grid grid-cols-3 gap-4">
+            <div>
+              <dt className="text-sm text-gray-500">Total Cost</dt>
+              <dd className="font-semibold">₹{Number(billing.totalCost || 0).toLocaleString('en-IN')}</dd>
+            </div>
+            <div>
+              <dt className="text-sm text-gray-500">Paid</dt>
+              <dd className="font-semibold text-green-600">
+                ₹{Number(billing.amountPaid || 0).toLocaleString('en-IN')}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-sm text-gray-500">Payment Status</dt>
+              <dd className="font-semibold">{billing.paymentStatus}</dd>
+            </div>
+          </dl>
+        </div>
+      )}
     </div>
   );
 }

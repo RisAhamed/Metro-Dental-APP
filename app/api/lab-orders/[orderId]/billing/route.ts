@@ -10,8 +10,9 @@ export async function GET(
   { params }: { params: Promise<{ orderId: string }> }
 ) {
   const { sessionClaims } = await auth();
-  if (!isDoctor(sessionClaims)) {
-    return NextResponse.json({ error: 'Unauthorized - Doctors only' }, { status: 403 });
+  const role = sessionClaims?.role;
+  if (!isDoctor(sessionClaims) && role !== 'LAB_TECHNICIAN') {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
   }
 
   const { orderId } = await params;

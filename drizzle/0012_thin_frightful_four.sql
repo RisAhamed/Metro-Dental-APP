@@ -1,0 +1,1 @@
+ALTER TABLE "lab_orders" ADD COLUMN "issues" jsonb DEFAULT '[]'::jsonb;
