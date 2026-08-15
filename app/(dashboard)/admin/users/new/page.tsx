@@ -8,7 +8,7 @@ export default function NewUserPage() {
   const [loading, setLoading] = useState(false);
   const [labs, setLabs] = useState<{ labId: string; name: string }[]>([]);
   const [vendors, setVendors] = useState<{ vendorId: string; name: string; clinicId: string }[]>([]);
-  const [selectedVendorId, setSelectedVendorId] = useState('');
+  const [selectedVendorId, setSelectedVendorId] = useState('__auto__');
   const [form, setForm] = useState({
     name: '',
     email: '',
@@ -58,10 +58,14 @@ export default function NewUserPage() {
     }
     setLoading(true);
     try {
+      const vendorId =
+        selectedVendorId === '__auto__' || selectedVendorId === '__sep__'
+          ? null
+          : selectedVendorId || null;
       const res = await fetch('/api/auth/create-user', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, vendorId: selectedVendorId || null }),
+        body: JSON.stringify({ ...form, vendorId }),
       });
       const data = await res.json();
       if (res.ok) {
@@ -120,7 +124,7 @@ export default function NewUserPage() {
             value={form.role}
             onChange={(e) => {
               const nextRole = e.target.value;
-              if (nextRole !== 'VENDOR') setSelectedVendorId('');
+              if (nextRole !== 'VENDOR') setSelectedVendorId('__auto__');
               setForm({ ...form, role: nextRole });
             }}
           >
@@ -160,7 +164,7 @@ export default function NewUserPage() {
               value={selectedVendorId}
               onChange={(e) => setSelectedVendorId(e.target.value)}
             >
-              <option value="">Auto-create vendor (name = user name)</option>
+              <option value="__auto__">Auto-create vendor (name = user name)</option>
               <option value="__sep__" disabled>
                 — or link an existing vendor —
               </option>
