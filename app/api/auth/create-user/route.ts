@@ -158,7 +158,8 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { name, email, phone, role, primaryClinicId, clinicIds, labId, vendorId } = body;
+  const { name, phone, role, primaryClinicId, clinicIds, labId, vendorId } = body;
+  const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
 
   // Validate required fields
   if (!name || !email || !role) {
@@ -177,18 +178,23 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    // Check for an existing user with the same email to give a clean error
-    const existing = await db
-      .select({ uid: users.uid, email: users.email })
-      .from(users)
-      .where(eq(users.email, email))
-      .limit(1);
-    if (existing.length > 0) {
+    const client = await clerkClient();
+
+    // Clerk is the source of truth for email uniqueness.
+    const clerkMatches = await client.users.getUserList({
+      emailAddress: [email],
+    });
+    if (clerkMatches.totalCount > 0) {
       return NextResponse.json(
         { error: `A user with email ${email} already exists.`, code: 'EMAIL_EXISTS' },
         { status: 409 }
       );
     }
+
+    // If Clerk says the email is free but a stale row still exists in our
+    // database (e.g. the Clerk user was deleted without syncing), remove it
+    // so the insert below does not fail on the unique constraint.
+    await db.delete(users).where(eq(users.email, email));
 
     // Auto-create a vendor entity when creating a VENDOR user without an existing vendor
     let finalVendorId: string | null = vendorId || null;
@@ -231,7 +237,6 @@ export async function POST(req: NextRequest) {
     const tempPwd = `Dc${Math.random().toString(36).slice(-8)}${Math.random().toString(36).slice(-6)}1!`;
 
     // Create user in Clerk with full error handling
-    const client = await clerkClient();
     const clerkUser = await client.users.createUser({
       emailAddress: [email],
       password: tempPwd,
