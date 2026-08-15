@@ -40,8 +40,12 @@ export async function GET(req: NextRequest) {
         id: users.uid,
         name: users.name,
         email: users.email,
+        phone: users.phone,
         role: users.role,
         clinicId: users.primaryClinicId,
+        primaryClinicId: users.primaryClinicId,
+        clinicIds: users.clinicIds,
+        isActive: users.isActive,
       })
       .from(users)
       .where(and(...conditions))

@@ -1,6 +1,12 @@
 import { clerkMiddleware } from '@clerk/nextjs/server';
 
-export default clerkMiddleware();
+export default clerkMiddleware(async (auth) => {
+  const a = await auth();
+  const { sessionClaims } = a;
+  if ((sessionClaims as { isActive?: boolean } | null)?.isActive === false) {
+    return a.redirectToSignIn();
+  }
+});
 
 export const config = {
   matcher: [
