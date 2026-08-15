@@ -86,7 +86,7 @@ async function sendWelcomeEmail(opts: {
 }): Promise<void> {
   const { name, email, tempPassword, role, clinicId } = opts;
   const appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000').replace(/\/+$/, '');
-  const from = process.env.RESEND_FROM_EMAIL || 'Metro Dental <noreply@metrodental.com>';
+  const from = (process.env.RESEND_FROM_EMAIL || 'Metro Dental <noreply@metrodental.com>').trim();
   const roleLabel = ROLE_LABELS[role] || role;
   const clinicLabel = clinicName(clinicId);
 
@@ -177,6 +177,19 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    // Check for an existing user with the same email to give a clean error
+    const existing = await db
+      .select({ uid: users.uid, email: users.email })
+      .from(users)
+      .where(eq(users.email, email))
+      .limit(1);
+    if (existing.length > 0) {
+      return NextResponse.json(
+        { error: `A user with email ${email} already exists.`, code: 'EMAIL_EXISTS' },
+        { status: 409 }
+      );
+    }
+
     // Auto-create a vendor entity when creating a VENDOR user without an existing vendor
     let finalVendorId: string | null = vendorId || null;
     if (role === 'VENDOR') {
@@ -268,17 +281,22 @@ export async function POST(req: NextRequest) {
       message: 'User created successfully',
     });
   } catch (error: unknown) {
-    const err = error as { message?: string; errors?: unknown };
+    const err = error as { message?: string; errors?: unknown; code?: string };
     // Log the full error to the server console (check Vercel logs or terminal)
     console.error('Clerk createUser error:', error);
+
+    const isDuplicate = (err as { code?: string })?.code === '23505';
 
     // Return a detailed message to the frontend
     return NextResponse.json(
       {
-        error: err.message || 'Failed to create user',
+        error: isDuplicate
+          ? `A user with this email already exists.`
+          : err.message || 'Failed to create user',
+        code: isDuplicate ? 'EMAIL_EXISTS' : err.code || undefined,
         details: err.errors || error,
       },
-      { status: 422 }
+      { status: isDuplicate ? 409 : 422 }
     );
   }
 }
