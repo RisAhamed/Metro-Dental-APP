@@ -71,6 +71,23 @@ export default function NewLabOrderPage() {
     }
   };
 
+  useEffect(() => {
+    if (searchPatient.length < 2) return;
+    const t = setTimeout(() => {
+      const search = async () => {
+        try {
+          const res = await fetch(`/api/patients?search=${encodeURIComponent(searchPatient)}&limit=10`);
+          const data = await res.json();
+          setPatients(data.patients || []);
+        } catch (error) {
+          console.error('Error searching patients:', error);
+        }
+      };
+      search();
+    }, 300);
+    return () => clearTimeout(t);
+  }, [searchPatient]);
+
   const handleSelectPatient = (patient: PatientResult) => {
     setSelectedPatient(patient);
     setSearchPatient('');

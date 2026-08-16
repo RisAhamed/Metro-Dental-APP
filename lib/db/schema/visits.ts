@@ -44,6 +44,12 @@ export const visits = table('visits', {
     recordedBy: string;
     notes: string | null;
   }>>().default([]),
+  // Files (Cloudflare R2)
+  fileIds: jsonb('file_ids').$type<Array<{
+    fileId: string;
+    fileName: string;
+    url: string;
+  }>>().default([]),
   // Additional
   additionalNotes: text('additional_notes'),
   nextVisitDate: timestamp('next_visit_date', { withTimezone: true }),

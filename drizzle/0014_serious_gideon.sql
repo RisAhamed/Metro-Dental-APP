@@ -1,0 +1,1 @@
+ALTER TABLE "visits" ADD COLUMN "file_ids" jsonb DEFAULT '[]'::jsonb;

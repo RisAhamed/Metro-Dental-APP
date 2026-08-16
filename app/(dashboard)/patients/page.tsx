@@ -94,6 +94,14 @@ export default function PatientsPage() {
     setLoading(true);
   };
 
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setAppliedSearch(searchQuery);
+      setLoading(true);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
+
   const selectGroup = (id: string | null) => {
     setSelectedGroup(id);
     setLoading(true);

@@ -570,7 +570,7 @@ export default function PatientProfilePage() {
                             onClick={() => router.push(`/patients/${patientId}/visits/${v.visitId}/edit`)}
                             className="px-2.5 py-1.5 text-xs text-blue-700 bg-blue-50 rounded-md hover:bg-blue-100"
                           >
-                            View / Edit
+                            {v.status === 'COMPLETED' ? 'View Session' : 'View / Edit'}
                           </button>
                         </td>
                       </tr>

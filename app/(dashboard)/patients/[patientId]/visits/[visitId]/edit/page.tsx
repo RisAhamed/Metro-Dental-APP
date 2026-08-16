@@ -27,6 +27,7 @@ interface Visit {
   amountPaid: string;
   paymentStatus: string;
   payments: { paymentId: string; amount: number; mode: string; notes: string | null; date: string; recordedBy: string }[];
+  fileIds: { fileId: string; fileName: string; url: string }[];
   additionalNotes: string | null;
   nextVisitDate: string | null;
   status: string;
@@ -94,7 +95,9 @@ export default function EditVisitPage() {
         >
           <ArrowLeft className="h-4 w-4" /> Back to Profile
         </button>
-        <h1 className="text-2xl font-bold text-gray-900">Edit Session — {patient.name}</h1>
+        <h1 className="text-2xl font-bold text-gray-900">
+          {visit.status === 'COMPLETED' ? 'View Session' : 'Edit Session'} — {patient.name}
+        </h1>
         <p className="text-sm text-gray-500">{visit.visitId}</p>
       </div>
 
@@ -104,6 +107,7 @@ export default function EditVisitPage() {
         clinicId={clinicId}
         visitId={visitId}
         initial={visit}
+        readOnly={visit.status === 'COMPLETED'}
       />
     </div>
   );

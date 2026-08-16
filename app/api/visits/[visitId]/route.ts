@@ -91,6 +91,7 @@ export async function PUT(
         amountPaid: String(paid),
         paymentStatus: finalPaymentStatus,
         payments: body.payments !== undefined ? body.payments : prev.payments,
+        fileIds: body.fileIds !== undefined ? body.fileIds : prev.fileIds,
         additionalNotes: body.additionalNotes !== undefined ? body.additionalNotes : prev.additionalNotes,
         nextVisitDate: body.nextVisitDate !== undefined ? (body.nextVisitDate ? new Date(body.nextVisitDate) : null) : prev.nextVisitDate,
         status: body.status || prev.status,

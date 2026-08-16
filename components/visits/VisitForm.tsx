@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, UploadCloud, FileText, Download, X } from 'lucide-react';
 import { VitalSignsInput, type VitalSigns } from './VitalSignsInput';
 import { DoctorsMultiSelect, type InvolvedDoctor } from './DoctorsMultiSelect';
 import { DentalChart } from '@/components/dental/DentalChart';
@@ -23,6 +23,12 @@ interface Payment {
   notes: string | null;
 }
 
+interface VisitFile {
+  fileId: string;
+  fileName: string;
+  url: string;
+}
+
 const VISIT_TYPES = ['NEW_PROBLEM', 'FOLLOW_UP', 'EMERGENCY', 'ROUTINE'];
 const PAYMENT_MODES = ['CASH', 'GPAY', 'PAYTM', 'DEBIT_CARD', 'CREDIT_CARD', 'OTHER'];
 
@@ -32,6 +38,7 @@ interface VisitFormProps {
   clinicId: string;
   visitId?: string;
   initial?: VisitData | null;
+  readOnly?: boolean;
 }
 
 interface VisitData {
@@ -49,6 +56,7 @@ interface VisitData {
   amountPaid: string;
   paymentStatus: string;
   payments: Payment[];
+  fileIds: VisitFile[];
   additionalNotes: string | null;
   nextVisitDate: string | null;
   status: string;
@@ -63,8 +71,9 @@ const EMPTY_VITALS: VitalSigns = {
   spo2: null,
 };
 
-export function VisitForm({ patientId, patientName, clinicId, visitId, initial }: VisitFormProps) {
+export function VisitForm({ patientId, patientName, clinicId, visitId, initial, readOnly }: VisitFormProps) {
   const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [form, setForm] = useState(() => ({
@@ -81,10 +90,25 @@ export function VisitForm({ patientId, patientName, clinicId, visitId, initial }
     nextVisitDate: initial?.nextVisitDate ? initial.nextVisitDate.slice(0, 10) : '',
   }));
   const [treatmentCost, setTreatmentCost] = useState(() => Number(initial?.treatmentCost || 0));
+  const [amountPaid, setAmountPaid] = useState(() => Number(initial?.amountPaid || 0));
+  const [paymentMode, setPaymentMode] = useState(() => initial?.payments?.[initial.payments.length - 1]?.mode || 'CASH');
+  const [files, setFiles] = useState<VisitFile[]>(() => initial?.fileIds || []);
+  const [uploading, setUploading] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentForm, setPaymentForm] = useState({ amount: '', mode: 'CASH', notes: '' });
 
   const isEdit = Boolean(visitId);
+  const isReadOnly = readOnly || initial?.status === 'COMPLETED';
+
+  const paymentStatus = treatmentCost > 0
+    ? amountPaid >= treatmentCost
+      ? 'PAID'
+      : amountPaid > 0
+        ? 'PARTIALLY_PAID'
+        : 'UNPAID'
+    : amountPaid > 0
+      ? 'PAID'
+      : 'UNPAID';
 
   const update = (key: string, val: unknown) => setForm((prev) => ({ ...prev, [key]: val }));
 
@@ -133,6 +157,10 @@ export function VisitForm({ patientId, patientName, clinicId, visitId, initial }
         if (r.ok) {
           setShowPaymentModal(false);
           setPaymentForm({ amount: '', mode: 'CASH', notes: '' });
+          if (data.visit) {
+            setAmountPaid(Number(data.visit.amountPaid || 0));
+            setPaymentMode(data.visit.payments?.[data.visit.payments.length - 1]?.mode || paymentForm.mode);
+          }
           router.refresh();
         } else {
           setError(data.error || 'Failed to record payment');
@@ -144,12 +172,53 @@ export function VisitForm({ patientId, patientName, clinicId, visitId, initial }
       });
   };
 
+  const uploadFiles = async (selected: FileList | null) => {
+    if (!selected || selected.length === 0) return;
+    setUploading(true);
+    setError('');
+    try {
+      for (const file of Array.from(selected)) {
+        const formData = new FormData();
+        formData.append('file', file);
+        const res = await fetch('/api/upload/visit-file', {
+          method: 'POST',
+          body: formData,
+        });
+        const data = await res.json();
+        if (res.ok && data.file) {
+          setFiles((prev) => [...prev, data.file]);
+        } else {
+          setError(data.error || `Failed to upload ${file.name}`);
+        }
+      }
+    } catch (e) {
+      console.error(e);
+      setError('Failed to upload file');
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const removeFile = async (file: VisitFile) => {
+    if (isReadOnly) return;
+    setFiles((prev) => prev.filter((f) => f.fileId !== file.fileId));
+    try {
+      await fetch(`/api/upload/visit-file?key=${encodeURIComponent(file.fileId)}`, { method: 'DELETE' });
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const submit = async (status: 'DRAFT' | 'COMPLETED') => {
     setLoading(true);
     setError('');
     const payload = {
       ...form,
       treatmentCost,
+      amountPaid,
+      fileIds: files,
+      paymentStatus,
       status,
     };
 
@@ -202,7 +271,8 @@ export function VisitForm({ patientId, patientName, clinicId, visitId, initial }
             <input
               type="date"
               required
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              disabled={isReadOnly}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50"
               value={form.visitDate}
               onChange={(e) => update('visitDate', e.target.value)}
             />
@@ -210,7 +280,8 @@ export function VisitForm({ patientId, patientName, clinicId, visitId, initial }
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Visit Type *</label>
             <select
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              disabled={isReadOnly}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50"
               value={form.visitType}
               onChange={(e) => update('visitType', e.target.value)}
             >
@@ -227,7 +298,7 @@ export function VisitForm({ patientId, patientName, clinicId, visitId, initial }
       {/* B. Vital Signs */}
       <section className="bg-white rounded-lg shadow p-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Vital Signs</h2>
-        <VitalSignsInput value={form.vitalSigns} onChange={(v) => update('vitalSigns', v)} />
+        <VitalSignsInput value={form.vitalSigns} onChange={(v) => update('vitalSigns', v)} disabled={isReadOnly} />
       </section>
 
       {/* C. Clinical Details */}
@@ -239,7 +310,8 @@ export function VisitForm({ patientId, patientName, clinicId, visitId, initial }
             <textarea
               rows={2}
               required
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              disabled={isReadOnly}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50"
               value={form.chiefComplaint}
               onChange={(e) => update('chiefComplaint', e.target.value)}
             />
@@ -248,7 +320,8 @@ export function VisitForm({ patientId, patientName, clinicId, visitId, initial }
             <label className="block text-sm font-medium text-gray-700 mb-1">Diagnosis</label>
             <textarea
               rows={2}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              disabled={isReadOnly}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50"
               value={form.diagnosis}
               onChange={(e) => update('diagnosis', e.target.value)}
             />
@@ -257,7 +330,8 @@ export function VisitForm({ patientId, patientName, clinicId, visitId, initial }
             <label className="block text-sm font-medium text-gray-700 mb-1">Treatment Given</label>
             <textarea
               rows={2}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              disabled={isReadOnly}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50"
               value={form.treatmentGiven}
               onChange={(e) => update('treatmentGiven', e.target.value)}
             />
@@ -265,6 +339,7 @@ export function VisitForm({ patientId, patientName, clinicId, visitId, initial }
           <label className="flex items-center gap-2 text-sm text-gray-700">
             <input
               type="checkbox"
+              disabled={isReadOnly}
               checked={form.injectionGiven}
               onChange={(e) => update('injectionGiven', e.target.checked)}
               className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
@@ -280,8 +355,9 @@ export function VisitForm({ patientId, patientName, clinicId, visitId, initial }
           <h2 className="text-lg font-semibold text-gray-900">Dental Chart Entries</h2>
           <button
             type="button"
+            disabled={isReadOnly}
             onClick={addChartEntry}
-            className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700"
+            className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 disabled:opacity-50"
           >
             <Plus className="h-4 w-4" /> Add Entry
           </button>
@@ -291,7 +367,7 @@ export function VisitForm({ patientId, patientName, clinicId, visitId, initial }
           <p className="text-sm font-medium text-gray-700 mb-2">
             Select teeth on the chart (applies to the last entry added):
           </p>
-          <DentalChart selected={selectedTeeth} onChange={setSelectedTeeth} />
+          <DentalChart selected={selectedTeeth} onChange={setSelectedTeeth} disabled={isReadOnly} />
         </div>
 
         {form.dentalChartEntries.length === 0 ? (
@@ -303,7 +379,8 @@ export function VisitForm({ patientId, patientName, clinicId, visitId, initial }
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">Region</label>
                   <select
-                    className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm"
+                    disabled={isReadOnly}
+                    className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm disabled:bg-gray-50"
                     value={entry.region}
                     onChange={(e) => updateChartEntry(idx, 'region', e.target.value)}
                   >
@@ -315,7 +392,8 @@ export function VisitForm({ patientId, patientName, clinicId, visitId, initial }
                   <label className="block text-xs font-medium text-gray-500 mb-1">Tooth Number</label>
                   <input
                     type="text"
-                    className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm"
+                    disabled={isReadOnly}
+                    className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm disabled:bg-gray-50"
                     value={entry.toothNumber}
                     placeholder="e.g. 11,36"
                     onChange={(e) => updateChartEntry(idx, 'toothNumber', e.target.value)}
@@ -325,7 +403,8 @@ export function VisitForm({ patientId, patientName, clinicId, visitId, initial }
                   <label className="block text-xs font-medium text-gray-500 mb-1">Procedure Done</label>
                   <input
                     type="text"
-                    className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm"
+                    disabled={isReadOnly}
+                    className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm disabled:bg-gray-50"
                     value={entry.procedureDone}
                     onChange={(e) => updateChartEntry(idx, 'procedureDone', e.target.value)}
                   />
@@ -334,18 +413,21 @@ export function VisitForm({ patientId, patientName, clinicId, visitId, initial }
                   <label className="block text-xs font-medium text-gray-500 mb-1">Notes</label>
                   <input
                     type="text"
-                    className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm"
+                    disabled={isReadOnly}
+                    className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm disabled:bg-gray-50"
                     value={entry.notes || ''}
                     onChange={(e) => updateChartEntry(idx, 'notes', e.target.value)}
                   />
                 </div>
-                <button
-                  type="button"
-                  onClick={() => removeChartEntry(idx)}
-                  className="mt-5 text-gray-400 hover:text-red-500"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
+                {!isReadOnly && (
+                  <button
+                    type="button"
+                    onClick={() => removeChartEntry(idx)}
+                    className="mt-5 text-gray-400 hover:text-red-500"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                )}
               </div>
             ))}
           </div>
@@ -359,6 +441,7 @@ export function VisitForm({ patientId, patientName, clinicId, visitId, initial }
           clinicId={clinicId}
           value={form.doctorsInvolved}
           onChange={(d) => update('doctorsInvolved', d)}
+          disabled={isReadOnly}
         />
       </section>
 
@@ -372,7 +455,8 @@ export function VisitForm({ patientId, patientName, clinicId, visitId, initial }
               type="number"
               min="0"
               step="0.01"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              disabled={isReadOnly}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-700"
               value={treatmentCost}
               onChange={(e) => setTreatmentCost(Number(e.target.value) || 0)}
             />
@@ -383,23 +467,47 @@ export function VisitForm({ patientId, patientName, clinicId, visitId, initial }
               type="number"
               min="0"
               step="0.01"
-              disabled
-              className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700"
-              value={initial ? Number(initial.amountPaid || 0) : 0}
+              disabled={isReadOnly}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-700"
+              value={amountPaid}
+              onChange={(e) => setAmountPaid(Number(e.target.value) || 0)}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Payment Status</label>
-            <input
-              type="text"
-              disabled
-              className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700"
-              value={initial?.paymentStatus || 'UNPAID'}
-            />
+            <label className="block text-sm font-medium text-gray-700 mb-1">Payment Mode</label>
+            <select
+              disabled={isReadOnly}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white disabled:bg-gray-50 disabled:text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={paymentMode}
+              onChange={(e) => setPaymentMode(e.target.value)}
+            >
+              {PAYMENT_MODES.map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 
-        {isEdit && (
+        <div className="mt-3">
+          <span className="text-sm font-medium text-gray-700">
+            Payment Status:&nbsp;
+            <span
+              className={`font-semibold ${
+                paymentStatus === 'PAID'
+                  ? 'text-green-600'
+                  : paymentStatus === 'PARTIALLY_PAID'
+                    ? 'text-yellow-600'
+                    : 'text-red-600'
+              }`}
+            >
+              {paymentStatus.replace(/_/g, ' ')}
+            </span>
+          </span>
+        </div>
+
+        {isEdit && !isReadOnly && (
           <button
             type="button"
             onClick={() => setShowPaymentModal(true)}
@@ -438,7 +546,65 @@ export function VisitForm({ patientId, patientName, clinicId, visitId, initial }
         )}
       </section>
 
-      {/* G. Additional Notes & Next Visit */}
+      {/* G. Files */}
+      <section className="bg-white rounded-lg shadow p-6">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">Session Files</h2>
+
+        {!isReadOnly && (
+          <div className="mb-4">
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              className="hidden"
+              onChange={(e) => uploadFiles(e.target.files)}
+            />
+            <button
+              type="button"
+              disabled={uploading}
+              onClick={() => fileInputRef.current?.click()}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 border border-blue-200 rounded-md text-sm hover:bg-blue-100 disabled:opacity-50"
+            >
+              <UploadCloud className="h-4 w-4" />
+              {uploading ? 'Uploading...' : 'Upload Files'}
+            </button>
+            <p className="text-xs text-gray-500 mt-1">Reports, X-rays, prescriptions, etc. (max 10MB each)</p>
+          </div>
+        )}
+
+        {files.length === 0 ? (
+          <p className="text-sm text-gray-500">No files attached to this session.</p>
+        ) : (
+          <div className="space-y-2">
+            {files.map((f) => (
+              <div
+                key={f.fileId}
+                className="flex items-center gap-3 bg-gray-50 border border-gray-200 rounded-md px-3 py-2"
+              >
+                <FileText className="h-4 w-4 text-gray-400 shrink-0" />
+                <span className="text-sm font-medium text-gray-800 flex-1 truncate">{f.fileName}</span>
+                <a
+                  href={`/api/upload/visit-file/download?key=${encodeURIComponent(f.fileId)}&name=${encodeURIComponent(f.fileName)}`}
+                  className="flex items-center gap-1 text-sm text-blue-600 hover:underline"
+                >
+                  <Download className="h-4 w-4" /> Download
+                </a>
+                {!isReadOnly && (
+                  <button
+                    type="button"
+                    onClick={() => removeFile(f)}
+                    className="text-gray-400 hover:text-red-500"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* H. Additional Notes & Next Visit */}
       <section className="bg-white rounded-lg shadow p-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Additional Notes & Next Visit</h2>
         <div className="space-y-4">
@@ -446,7 +612,8 @@ export function VisitForm({ patientId, patientName, clinicId, visitId, initial }
             <label className="block text-sm font-medium text-gray-700 mb-1">Additional Notes</label>
             <textarea
               rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              disabled={isReadOnly}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50"
               value={form.additionalNotes}
               onChange={(e) => update('additionalNotes', e.target.value)}
             />
@@ -455,7 +622,8 @@ export function VisitForm({ patientId, patientName, clinicId, visitId, initial }
             <label className="block text-sm font-medium text-gray-700 mb-1">Next Visit Date</label>
             <input
               type="date"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              disabled={isReadOnly}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50"
               value={form.nextVisitDate}
               onChange={(e) => update('nextVisitDate', e.target.value)}
             />
@@ -464,31 +632,43 @@ export function VisitForm({ patientId, patientName, clinicId, visitId, initial }
       </section>
 
       {/* Actions */}
-      <div className="flex items-center justify-end gap-3">
-        <button
-          type="button"
-          onClick={() => router.back()}
-          className="px-4 py-2 border border-gray-300 rounded-md text-sm hover:bg-gray-50"
-        >
-          Cancel
-        </button>
-        <button
-          type="button"
-          disabled={loading}
-          onClick={() => submit('DRAFT')}
-          className="px-4 py-2 border border-blue-300 text-blue-700 rounded-md text-sm hover:bg-blue-50 disabled:opacity-50"
-        >
-          {loading ? 'Saving...' : 'Save as Draft'}
-        </button>
-        <button
-          type="button"
-          disabled={loading || !form.chiefComplaint.trim()}
-          onClick={() => submit('COMPLETED')}
-          className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 disabled:opacity-50"
-        >
-          {loading ? 'Saving...' : 'Complete Session'}
-        </button>
-      </div>
+      {isReadOnly ? (
+        <div className="flex items-center justify-end gap-3">
+          <button
+            type="button"
+            onClick={() => router.push(`/patients/${patientId}/profile?tab=visits`)}
+            className="px-4 py-2 border border-gray-300 rounded-md text-sm hover:bg-gray-50"
+          >
+            Back to Profile
+          </button>
+        </div>
+      ) : (
+        <div className="flex items-center justify-end gap-3">
+          <button
+            type="button"
+            onClick={() => router.back()}
+            className="px-4 py-2 border border-gray-300 rounded-md text-sm hover:bg-gray-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            disabled={loading}
+            onClick={() => submit('DRAFT')}
+            className="px-4 py-2 border border-blue-300 text-blue-700 rounded-md text-sm hover:bg-blue-50 disabled:opacity-50"
+          >
+            {loading ? 'Saving...' : 'Save as Draft'}
+          </button>
+          <button
+            type="button"
+            disabled={loading || !form.chiefComplaint.trim()}
+            onClick={() => submit('COMPLETED')}
+            className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 disabled:opacity-50"
+          >
+            {loading ? 'Saving...' : 'Complete Session'}
+          </button>
+        </div>
+      )}
 
       {/* Payment Modal */}
       {showPaymentModal && (
