@@ -46,3 +46,12 @@ export async function getFromR2(key: string) {
   if (!r2) throw new Error('R2 is not configured');
   return r2.send(new GetObjectCommand({ Bucket: R2_BUCKET, Key: key }));
 }
+
+// Public URL for an object. R2_ENDPOINT_URL points at the bucket's S3-compatible
+// endpoint (https://<account>.r2.cloudflarestorage.com/<bucket>), so the public
+// URL is endpoint + "/" + key.
+export function r2PublicUrl(key: string): string {
+  const base = (process.env.R2_ENDPOINT_URL || '').replace(/\/+$/, '');
+  if (!base) return '';
+  return `${base}/${key}`;
+}

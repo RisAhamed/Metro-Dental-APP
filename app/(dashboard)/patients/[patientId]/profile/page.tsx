@@ -90,6 +90,9 @@ interface Plan {
 
 const PAYMENT_MODES = ['CASH', 'GPAY', 'PAYTM', 'DEBIT_CARD', 'CREDIT_CARD', 'OTHER'];
 
+const FULL_EDIT_ROLES = ['SUPER_ADMIN', 'CLINIC_ADMIN', 'GENERAL_DOCTOR', 'ASSISTANT_DOCTOR'];
+const BILLING_EDIT_ROLES = ['RECEPTIONIST'];
+
 const TABS = ['Overview', 'Medical History', 'Groups', 'Payments', 'Visits', 'Treatment Plans'];
 
 const InfoItem = ({
@@ -144,6 +147,10 @@ export default function PatientProfilePage() {
     : params.patientId || '';
 
   const clinicId = (sessionClaims?.primaryClinicId as string) || 'clinic_a';
+  const role = String(sessionClaims?.role || '');
+  const canFullEdit = FULL_EDIT_ROLES.includes(role);
+  const canBillingEdit = canFullEdit || BILLING_EDIT_ROLES.includes(role);
+  const canManageSessions = canFullEdit;
 
   useEffect(() => {
     const load = async () => {
@@ -353,12 +360,14 @@ export default function PatientProfilePage() {
               >
                 Record Payment
               </button>
-              <button
-                onClick={() => router.push(`/patients/${patientId}/visits/new`)}
-                className="mt-3 ml-2 flex items-center gap-1 px-4 py-2 bg-green-600 text-white text-sm rounded-md hover:bg-green-700"
-              >
-                <Plus className="h-4 w-4" /> New Session
-              </button>
+              {canManageSessions && (
+                <button
+                  onClick={() => router.push(`/patients/${patientId}/visits/new`)}
+                  className="mt-3 ml-2 flex items-center gap-1 px-4 py-2 bg-green-600 text-white text-sm rounded-md hover:bg-green-700"
+                >
+                  <Plus className="h-4 w-4" /> New Session
+                </button>
+              )}
             </div>
           </div>
 
@@ -515,12 +524,14 @@ export default function PatientProfilePage() {
               <h3 className="font-semibold text-gray-700 flex items-center gap-2">
                 <Activity className="h-5 w-5 text-blue-500" /> Visits (Sessions)
               </h3>
-              <button
-                onClick={() => router.push(`/patients/${patientId}/visits/new`)}
-                className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white text-sm rounded-md hover:bg-green-700"
-              >
-                <Plus className="h-4 w-4" /> New Session
-              </button>
+              {canManageSessions && (
+                <button
+                  onClick={() => router.push(`/patients/${patientId}/visits/new`)}
+                  className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white text-sm rounded-md hover:bg-green-700"
+                >
+                  <Plus className="h-4 w-4" /> New Session
+                </button>
+              )}
             </div>
             {clinicalLoading ? (
               <p className="text-sm text-gray-500">Loading visits...</p>
@@ -565,13 +576,23 @@ export default function PatientProfilePage() {
                             {v.paymentStatus.replace(/_/g, ' ')}
                           </span>
                         </td>
-                        <td className="px-4 py-2 text-right">
-                          <button
-                            onClick={() => router.push(`/patients/${patientId}/visits/${v.visitId}/edit`)}
-                            className="px-2.5 py-1.5 text-xs text-blue-700 bg-blue-50 rounded-md hover:bg-blue-100"
-                          >
-                            {v.status === 'COMPLETED' ? 'View Session' : 'View / Edit'}
-                          </button>
+                        <td className="px-4 py-2 text-right whitespace-nowrap">
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => router.push(`/patients/${patientId}/visits/${v.visitId}/view`)}
+                              className="px-2.5 py-1.5 text-xs text-gray-700 bg-gray-50 border border-gray-200 rounded-md hover:bg-gray-100"
+                            >
+                              View Session
+                            </button>
+                            {v.status !== 'COMPLETED' && canBillingEdit && (
+                              <button
+                                onClick={() => router.push(`/patients/${patientId}/visits/${v.visitId}/edit`)}
+                                className="px-2.5 py-1.5 text-xs text-blue-700 bg-blue-50 rounded-md hover:bg-blue-100"
+                              >
+                                {canFullEdit ? 'Edit' : 'Edit Billing'}
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}

@@ -42,6 +42,7 @@ export const visits = table('visits', {
     mode: 'CASH' | 'GPAY' | 'PAYTM' | 'DEBIT_CARD' | 'CREDIT_CARD' | 'OTHER';
     date: string;
     recordedBy: string;
+    recordedByName: string | null;
     notes: string | null;
   }>>().default([]),
   // Files (Cloudflare R2)
@@ -49,6 +50,7 @@ export const visits = table('visits', {
     fileId: string;
     fileName: string;
     url: string;
+    type: string;
   }>>().default([]),
   // Additional
   additionalNotes: text('additional_notes'),

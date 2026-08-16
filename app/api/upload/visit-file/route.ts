@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { uploadToR2, deleteFromR2 } from '@/lib/r2';
+import { uploadToR2, deleteFromR2, r2PublicUrl } from '@/lib/r2';
 import { canManageClinical } from '@/lib/auth/claims';
 
 export async function POST(req: NextRequest) {
@@ -32,7 +32,8 @@ export async function POST(req: NextRequest) {
       file: {
         fileId: key,
         fileName: file.name,
-        url: key,
+        url: r2PublicUrl(key),
+        type: file.type || 'application/octet-stream',
       },
     });
   } catch (error) {

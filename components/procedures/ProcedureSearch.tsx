@@ -117,7 +117,8 @@ export function ProcedureSearch({ onSelect, placeholder, disabled, allowCustom }
 
       {open && query.trim() && !loading && results.length === 0 && (
         <div className="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg p-2 text-sm">
-          {allowCustom ? (
+          <p className="px-3 py-1 text-gray-500">No procedures found.</p>
+          {allowCustom && (
             <button
               type="button"
               onClick={handleCustom}
@@ -127,8 +128,6 @@ export function ProcedureSearch({ onSelect, placeholder, disabled, allowCustom }
                 + Add &quot;{query.trim()}&quot; as new procedure
               </span>
             </button>
-          ) : (
-            <p className="px-3 py-2 text-gray-500">No procedures found.</p>
           )}
         </div>
       )}

@@ -21,6 +21,18 @@ export function getUserRole(claims: unknown): string {
   return normalize(claims)?.role ?? 'unknown';
 }
 
+export function isReceptionist(claims: unknown): boolean {
+  return normalize(claims)?.role === 'RECEPTIONIST';
+}
+
+export function isLabTechnician(claims: unknown): boolean {
+  return normalize(claims)?.role === 'LAB_TECHNICIAN';
+}
+
+export function isVendor(claims: unknown): boolean {
+  return normalize(claims)?.role === 'VENDOR';
+}
+
 export function isSuperAdmin(claims: unknown): boolean {
   return normalize(claims)?.role === 'SUPER_ADMIN';
 }

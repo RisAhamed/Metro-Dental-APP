@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { db } from '@/lib/db';
 import { visits } from '@/lib/db/schema/visits';
-import { canViewClinical, canManageClinical } from '@/lib/auth/claims';
+import { canViewClinical, canManageClinical, isReceptionist } from '@/lib/auth/claims';
 import { eq } from 'drizzle-orm';
 
 const VISIT_TYPES = ['NEW_PROBLEM', 'FOLLOW_UP', 'EMERGENCY', 'ROUTINE'];
@@ -42,8 +42,10 @@ export async function PUT(
   { params }: { params: Promise<{ visitId: string }> }
 ) {
   const { sessionClaims, userId } = await auth();
-  if (!canManageClinical(sessionClaims) || !userId) {
-    return NextResponse.json({ error: 'Unauthorized - Clinical staff only' }, { status: 403 });
+  const canFullEdit = canManageClinical(sessionClaims);
+  const canBillingEdit = isReceptionist(sessionClaims);
+  if ((!canFullEdit && !canBillingEdit) || !userId) {
+    return NextResponse.json({ error: 'Unauthorized - No permission to edit sessions' }, { status: 403 });
   }
 
   const { visitId } = await params;
@@ -54,6 +56,18 @@ export async function PUT(
   }
   if (body.status && !VISIT_STATUSES.includes(body.status)) {
     return NextResponse.json({ error: `Invalid status: ${body.status}` }, { status: 400 });
+  }
+
+  // Receptionists may only update billing/payment fields
+  if (canBillingEdit && !canFullEdit) {
+    const billingOnly = ['treatmentCost', 'amountPaid', 'paymentStatus', 'payments'];
+    const blocked = Object.keys(body).filter((k) => !billingOnly.includes(k));
+    if (blocked.length > 0) {
+      return NextResponse.json(
+        { error: 'Receptionists can only update billing/payment fields' },
+        { status: 403 }
+      );
+    }
   }
 
   try {
@@ -75,29 +89,35 @@ export async function PUT(
       finalPaymentStatus = paid >= cost && cost > 0 ? 'PAID' : paid > 0 ? 'PARTIALLY_PAID' : 'UNPAID';
     }
 
+    const updates: Record<string, unknown> = {
+      updatedAt: new Date(),
+      updatedBy: userId,
+    };
+
+    if (canFullEdit) {
+      updates.visitDate = body.visitDate ? new Date(body.visitDate) : prev.visitDate;
+      updates.visitType = body.visitType || prev.visitType;
+      updates.chiefComplaint = body.chiefComplaint !== undefined ? body.chiefComplaint : prev.chiefComplaint;
+      updates.diagnosis = body.diagnosis !== undefined ? body.diagnosis : prev.diagnosis;
+      updates.treatmentGiven = body.treatmentGiven !== undefined ? body.treatmentGiven : prev.treatmentGiven;
+      updates.injectionGiven = body.injectionGiven !== undefined ? body.injectionGiven : prev.injectionGiven;
+      updates.doctorsInvolved = body.doctorsInvolved !== undefined ? body.doctorsInvolved : prev.doctorsInvolved;
+      updates.dentalChartEntries = body.dentalChartEntries !== undefined ? body.dentalChartEntries : prev.dentalChartEntries;
+      updates.vitalSigns = body.vitalSigns !== undefined ? body.vitalSigns : prev.vitalSigns;
+      updates.fileIds = body.fileIds !== undefined ? body.fileIds : prev.fileIds;
+      updates.additionalNotes = body.additionalNotes !== undefined ? body.additionalNotes : prev.additionalNotes;
+      updates.nextVisitDate = body.nextVisitDate !== undefined ? (body.nextVisitDate ? new Date(body.nextVisitDate) : null) : prev.nextVisitDate;
+      updates.status = body.status || prev.status;
+    }
+
+    updates.treatmentCost = String(cost);
+    updates.amountPaid = String(paid);
+    updates.paymentStatus = finalPaymentStatus;
+    updates.payments = body.payments !== undefined ? body.payments : prev.payments;
+
     await db
       .update(visits)
-      .set({
-        visitDate: body.visitDate ? new Date(body.visitDate) : prev.visitDate,
-        visitType: body.visitType || prev.visitType,
-        chiefComplaint: body.chiefComplaint !== undefined ? body.chiefComplaint : prev.chiefComplaint,
-        diagnosis: body.diagnosis !== undefined ? body.diagnosis : prev.diagnosis,
-        treatmentGiven: body.treatmentGiven !== undefined ? body.treatmentGiven : prev.treatmentGiven,
-        injectionGiven: body.injectionGiven !== undefined ? body.injectionGiven : prev.injectionGiven,
-        doctorsInvolved: body.doctorsInvolved !== undefined ? body.doctorsInvolved : prev.doctorsInvolved,
-        dentalChartEntries: body.dentalChartEntries !== undefined ? body.dentalChartEntries : prev.dentalChartEntries,
-        vitalSigns: body.vitalSigns !== undefined ? body.vitalSigns : prev.vitalSigns,
-        treatmentCost: String(cost),
-        amountPaid: String(paid),
-        paymentStatus: finalPaymentStatus,
-        payments: body.payments !== undefined ? body.payments : prev.payments,
-        fileIds: body.fileIds !== undefined ? body.fileIds : prev.fileIds,
-        additionalNotes: body.additionalNotes !== undefined ? body.additionalNotes : prev.additionalNotes,
-        nextVisitDate: body.nextVisitDate !== undefined ? (body.nextVisitDate ? new Date(body.nextVisitDate) : null) : prev.nextVisitDate,
-        status: body.status || prev.status,
-        updatedAt: new Date(),
-        updatedBy: userId,
-      })
+      .set(updates)
       .where(eq(visits.visitId, visitId));
 
     const updated = await db

@@ -6,6 +6,9 @@ import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { VisitForm } from '@/components/visits/VisitForm';
 
+const FULL_EDIT_ROLES = ['SUPER_ADMIN', 'CLINIC_ADMIN', 'GENERAL_DOCTOR', 'ASSISTANT_DOCTOR'];
+const BILLING_EDIT_ROLES = ['RECEPTIONIST'];
+
 interface Patient {
   patientId: string;
   name: string;
@@ -26,8 +29,8 @@ interface Visit {
   treatmentCost: string;
   amountPaid: string;
   paymentStatus: string;
-  payments: { paymentId: string; amount: number; mode: string; notes: string | null; date: string; recordedBy: string }[];
-  fileIds: { fileId: string; fileName: string; url: string }[];
+  payments: { paymentId: string; amount: number; mode: string; notes: string | null; date: string; recordedBy: string; recordedByName: string | null }[];
+  fileIds: { fileId: string; fileName: string; url: string; type?: string }[];
   additionalNotes: string | null;
   nextVisitDate: string | null;
   status: string;
@@ -45,6 +48,11 @@ export default function EditVisitPage() {
   const patientId = Array.isArray(params.patientId) ? params.patientId[0] : params.patientId || '';
   const visitId = Array.isArray(params.visitId) ? params.visitId[0] : params.visitId || '';
   const clinicId = (sessionClaims?.primaryClinicId as string) || 'clinic_a';
+
+  const role = String(sessionClaims?.role || '');
+  const canFullEdit = FULL_EDIT_ROLES.includes(role);
+  const canBillingEdit = canFullEdit || BILLING_EDIT_ROLES.includes(role);
+  const noAccess = !canFullEdit && !canBillingEdit;
 
   useEffect(() => {
     const load = async () => {
@@ -72,6 +80,20 @@ export default function EditVisitPage() {
     return <div className="text-center py-12 text-gray-500">Loading...</div>;
   }
 
+  if (noAccess) {
+    return (
+      <div className="max-w-2xl mx-auto text-center py-16">
+        <p className="text-gray-600 mb-4">You do not have permission to edit sessions.</p>
+        <button
+          onClick={() => router.push(`/patients/${patientId}/profile?tab=visits`)}
+          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+        >
+          Back to Profile
+        </button>
+      </div>
+    );
+  }
+
   if (notFound || !patient || !visit) {
     return (
       <div className="max-w-2xl mx-auto text-center py-16">
@@ -95,10 +117,15 @@ export default function EditVisitPage() {
         >
           <ArrowLeft className="h-4 w-4" /> Back to Profile
         </button>
-        <h1 className="text-2xl font-bold text-gray-900">
-          {visit.status === 'COMPLETED' ? 'View Session' : 'Edit Session'} — {patient.name}
-        </h1>
+      <h1 className="text-2xl font-bold text-gray-900">
+        {visit.status === 'COMPLETED' ? 'View Session' : canFullEdit ? 'Edit Session' : 'Edit Billing'} — {patient.name}
+      </h1>
         <p className="text-sm text-gray-500">{visit.visitId}</p>
+        {!canFullEdit && visit.status !== 'COMPLETED' && (
+          <p className="text-sm text-amber-600 mt-1">
+            You can edit billing/payment fields only. Clinical fields are locked.
+          </p>
+        )}
       </div>
 
       <VisitForm

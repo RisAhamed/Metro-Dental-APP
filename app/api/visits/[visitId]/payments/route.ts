@@ -64,7 +64,8 @@ export async function POST(
       amount: parsedAmount,
       mode,
       date: date ? String(date) : new Date().toISOString().slice(0, 10),
-      recordedBy: `${userId} (${recordedByName})`,
+      recordedBy: userId,
+      recordedByName: recordedByName || null,
       notes: notes || null,
     };
 
