@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@clerk/nextjs';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import {
   Phone,
   Mail,
@@ -16,6 +16,9 @@ import {
   User,
   ArrowLeft,
   DollarSign,
+  ClipboardList,
+  Activity,
+  Plus,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -66,9 +69,28 @@ interface Payment {
   notes: string | null;
 }
 
+interface Visit {
+  visitId: string;
+  visitDate: string;
+  visitType: string;
+  chiefComplaint: string | null;
+  treatmentCost: string;
+  amountPaid: string;
+  paymentStatus: string;
+  status: string;
+}
+
+interface Plan {
+  planId: string;
+  title: string | null;
+  status: string;
+  grandTotal: string;
+  createdAt: string;
+}
+
 const PAYMENT_MODES = ['CASH', 'GPAY', 'PAYTM', 'DEBIT_CARD', 'CREDIT_CARD', 'OTHER'];
 
-const TABS = ['Overview', 'Medical History', 'Groups', 'Payments'];
+const TABS = ['Overview', 'Medical History', 'Groups', 'Payments', 'Visits', 'Treatment Plans'];
 
 const InfoItem = ({
   icon: Icon,
@@ -91,10 +113,16 @@ const InfoItem = ({
 export default function PatientProfilePage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { sessionClaims } = useAuth();
   const [patient, setPatient] = useState<Patient | null>(null);
   const [groups, setGroups] = useState<Group[]>([]);
-  const [activeTab, setActiveTab] = useState('Overview');
+  const [activeTab, setActiveTab] = useState(() => {
+    const tab = searchParams.get('tab');
+    if (tab === 'visits') return 'Visits';
+    if (tab === 'treatment-plans') return 'Treatment Plans';
+    return 'Overview';
+  });
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -107,6 +135,9 @@ export default function PatientProfilePage() {
     date: new Date().toISOString().slice(0, 10),
     notes: '',
   });
+  const [visits, setVisits] = useState<Visit[]>([]);
+  const [plans, setPlans] = useState<Plan[]>([]);
+  const [clinicalLoading, setClinicalLoading] = useState(false);
 
   const patientId = Array.isArray(params.patientId)
     ? params.patientId[0]
@@ -159,6 +190,34 @@ export default function PatientProfilePage() {
     };
   }, [patientId]);
 
+  useEffect(() => {
+    if (!patientId || activeTab === 'Overview') return;
+    let cancelled = false;
+    const loadClinical = async () => {
+      setClinicalLoading(true);
+      try {
+        if (activeTab === 'Visits') {
+          const res = await fetch(`/api/patients/${patientId}/visits`);
+          const data = await res.json();
+          if (!cancelled) setVisits(data.visits || []);
+        }
+        if (activeTab === 'Treatment Plans') {
+          const res = await fetch(`/api/patients/${patientId}/treatment-plans`);
+          const data = await res.json();
+          if (!cancelled) setPlans(data.plans || []);
+        }
+      } catch (error) {
+        console.error('Error loading clinical data:', error);
+      } finally {
+        if (!cancelled) setClinicalLoading(false);
+      }
+    };
+    loadClinical();
+    return () => {
+      cancelled = true;
+    };
+  }, [patientId, activeTab]);
+
   const handleSavePayment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!patient) return;
@@ -191,7 +250,7 @@ export default function PatientProfilePage() {
       } else {
         setPaymentError(data.error || 'Failed to record payment');
       }
-    } catch (error) {
+    } catch {
       setPaymentError('Failed to record payment');
     } finally {
       setSavingPayment(false);
@@ -293,6 +352,12 @@ export default function PatientProfilePage() {
                 className="mt-3 px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"
               >
                 Record Payment
+              </button>
+              <button
+                onClick={() => router.push(`/patients/${patientId}/visits/new`)}
+                className="mt-3 ml-2 flex items-center gap-1 px-4 py-2 bg-green-600 text-white text-sm rounded-md hover:bg-green-700"
+              >
+                <Plus className="h-4 w-4" /> New Session
               </button>
             </div>
           </div>
@@ -444,7 +509,145 @@ export default function PatientProfilePage() {
         )}
       </div>
 
-      {/* Record Payment Modal */}
+      {activeTab === 'Visits' && (
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold text-gray-700 flex items-center gap-2">
+                <Activity className="h-5 w-5 text-blue-500" /> Visits (Sessions)
+              </h3>
+              <button
+                onClick={() => router.push(`/patients/${patientId}/visits/new`)}
+                className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white text-sm rounded-md hover:bg-green-700"
+              >
+                <Plus className="h-4 w-4" /> New Session
+              </button>
+            </div>
+            {clinicalLoading ? (
+              <p className="text-sm text-gray-500">Loading visits...</p>
+            ) : visits.length === 0 ? (
+              <p className="text-sm text-gray-500">No visits recorded yet.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Complaint</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Payment</th>
+                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {visits.map((v) => (
+                      <tr key={v.visitId} className="hover:bg-gray-50">
+                        <td className="px-4 py-2 text-sm text-gray-700">{formatDate(v.visitDate)}</td>
+                        <td className="px-4 py-2 text-sm text-gray-700">{v.visitType.replace(/_/g, ' ')}</td>
+                        <td className="px-4 py-2 text-sm text-gray-700 max-w-[200px] truncate">{v.chiefComplaint || '—'}</td>
+                        <td className="px-4 py-2">
+                          <span className={`px-2 py-0.5 text-xs rounded-full ${
+                            v.status === 'COMPLETED'
+                              ? 'bg-green-100 text-green-700'
+                              : 'bg-yellow-100 text-yellow-700'
+                          }`}>
+                            {v.status}
+                          </span>
+                        </td>
+                        <td className="px-4 py-2 text-sm text-gray-700">
+                          <span className={`px-2 py-0.5 text-xs rounded-full ${
+                            v.paymentStatus === 'PAID'
+                              ? 'bg-green-100 text-green-700'
+                              : v.paymentStatus === 'PARTIALLY_PAID'
+                                ? 'bg-yellow-100 text-yellow-700'
+                                : 'bg-red-100 text-red-700'
+                          }`}>
+                            {v.paymentStatus.replace(/_/g, ' ')}
+                          </span>
+                        </td>
+                        <td className="px-4 py-2 text-right">
+                          <button
+                            onClick={() => router.push(`/patients/${patientId}/visits/${v.visitId}/edit`)}
+                            className="px-2.5 py-1.5 text-xs text-blue-700 bg-blue-50 rounded-md hover:bg-blue-100"
+                          >
+                            View / Edit
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'Treatment Plans' && (
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold text-gray-700 flex items-center gap-2">
+                <ClipboardList className="h-5 w-5 text-purple-500" /> Treatment Plans
+              </h3>
+              <button
+                onClick={() => router.push(`/patients/${patientId}/treatment-plans/new`)}
+                className="flex items-center gap-1 px-3 py-1.5 bg-purple-600 text-white text-sm rounded-md hover:bg-purple-700"
+              >
+                <Plus className="h-4 w-4" /> New Treatment Plan
+              </button>
+            </div>
+            {clinicalLoading ? (
+              <p className="text-sm text-gray-500">Loading treatment plans...</p>
+            ) : plans.length === 0 ? (
+              <p className="text-sm text-gray-500">No treatment plans yet.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Plan</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Created</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Grand Total</th>
+                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {plans.map((p) => (
+                      <tr key={p.planId} className="hover:bg-gray-50">
+                        <td className="px-4 py-2 text-sm text-gray-700">{p.title || 'Untitled Plan'}</td>
+                        <td className="px-4 py-2">
+                          <span className={`px-2 py-0.5 text-xs rounded-full ${
+                            p.status === 'ACTIVE'
+                              ? 'bg-green-100 text-green-700'
+                              : p.status === 'COMPLETED'
+                                ? 'bg-blue-100 text-blue-700'
+                                : 'bg-yellow-100 text-yellow-700'
+                          }`}>
+                            {p.status}
+                          </span>
+                        </td>
+                        <td className="px-4 py-2 text-sm text-gray-700">{formatDate(p.createdAt)}</td>
+                        <td className="px-4 py-2 text-sm font-semibold text-gray-900">
+                          ₹{Number(p.grandTotal || 0).toLocaleString('en-IN')}
+                        </td>
+                        <td className="px-4 py-2 text-right">
+                          <button
+                            onClick={() => router.push(`/patients/${patientId}/treatment-plans/${p.planId}`)}
+                            className="px-2.5 py-1.5 text-xs text-blue-700 bg-blue-50 rounded-md hover:bg-blue-100"
+                          >
+                            View
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Record Payment Modal */}
       {showPaymentModal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">

@@ -31,3 +31,6 @@ export * from './purchaseOrders';
 export * from './patientPayments';
 export * from './activityLogs';
 export * from './counters';
+export * from './visits';
+export * from './treatmentPlans';
+export * from './proceduresCatalog';

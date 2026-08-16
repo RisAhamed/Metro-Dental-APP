@@ -97,3 +97,24 @@ export function isHREligible(claims: unknown): boolean {
     'RECEPTIONIST',
   ].includes(normalize(claims)?.role || '');
 }
+
+// Can view visits & treatment plans (receptionists included, read-only)
+export function canViewClinical(claims: unknown): boolean {
+  return [
+    'SUPER_ADMIN',
+    'CLINIC_ADMIN',
+    'GENERAL_DOCTOR',
+    'ASSISTANT_DOCTOR',
+    'RECEPTIONIST',
+  ].includes(normalize(claims)?.role || '');
+}
+
+// Can create/edit clinical details of visits & treatment plans
+export function canManageClinical(claims: unknown): boolean {
+  return [
+    'SUPER_ADMIN',
+    'CLINIC_ADMIN',
+    'GENERAL_DOCTOR',
+    'ASSISTANT_DOCTOR',
+  ].includes(normalize(claims)?.role || '');
+}

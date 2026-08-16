@@ -14,7 +14,9 @@ import { defaultLabs } from './labs';
 import { defaultSurgeryTypes } from './surgeryTypes';
 import { defaultSundayTasks } from './sundayTasks';
 import { inventoryCategories } from './inventoryCategories';
-import { sql } from 'drizzle-orm';
+import { defaultProcedures } from './procedures';
+import { proceduresCatalog } from '@/lib/db/schema/proceduresCatalog';
+import { sql, isNull } from 'drizzle-orm';
 
 export const slugify = (name: string) => name.toLowerCase().replace(/[^a-z0-9]/g, '-');
 
@@ -140,8 +142,35 @@ export async function seedInventoryCategories() {
   return inventoryCategories.length;
 }
 
+export async function seedProceduresCatalog() {
+  await db.delete(proceduresCatalog).where(isNull(proceduresCatalog.clinicId));
+  const usedIds = new Set<string>();
+  let seeded = 0;
+  for (const proc of defaultProcedures) {
+    let id = slugify(proc.name);
+    let suffix = 2;
+    while (usedIds.has(id)) {
+      id = `${slugify(proc.name)}-${suffix}`;
+      suffix += 1;
+    }
+    usedIds.add(id);
+    await db
+      .insert(proceduresCatalog)
+      .values({
+        id,
+        name: proc.name,
+        defaultCost: String(proc.defaultCost),
+        isActive: true,
+        clinicId: null,
+      })
+      .onConflictDoNothing();
+    seeded += 1;
+  }
+  return seeded;
+}
+
 export async function seedAllData(clinicId: string, createdBy = 'system') {
-  const [referrals, conditions, categories, groups, labCount, surgeryCount, taskCount, invCategories] =
+  const [referrals, conditions, categories, groups, labCount, surgeryCount, taskCount, invCategories, procedures] =
     await Promise.all([
       seedReferralSources(),
       seedMedicalConditions(),
@@ -151,6 +180,7 @@ export async function seedAllData(clinicId: string, createdBy = 'system') {
       seedSurgeryTypes(),
       seedSundayTasks(),
       seedInventoryCategories(),
+      seedProceduresCatalog(),
     ]);
 
   return {
@@ -162,5 +192,6 @@ export async function seedAllData(clinicId: string, createdBy = 'system') {
     surgeryTypes: surgeryCount,
     sundayTasks: taskCount,
     inventoryCategories: invCategories,
+    procedures,
   };
 }
