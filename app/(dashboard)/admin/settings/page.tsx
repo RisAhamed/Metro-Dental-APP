@@ -104,6 +104,21 @@ export default async function SettingsPage() {
         </div>
       </div>
 
+      <div className="bg-white rounded-lg shadow p-6">
+        <h2 className="text-lg font-semibold text-gray-900">Payroll & Compensation</h2>
+        <p className="text-sm text-gray-600 mt-1">
+          Configure doctor pay, work hours, revenue targets, and bonuses.
+        </p>
+        <div className="mt-3">
+          <Link
+            href="/admin/settings/payroll"
+            className="inline-block px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+          >
+            Payroll & Compensation Settings
+          </Link>
+        </div>
+      </div>
+
       <SeedDataButton />
     </div>
   );

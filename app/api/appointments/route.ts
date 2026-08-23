@@ -80,6 +80,34 @@ export async function POST(req: NextRequest) {
   const apptDate = new Date(appointmentDate);
 
   try {
+    // Auto-generate token number for walk-ins (per day, per clinic)
+    let finalTokenNumber = tokenNumber || null;
+    if (isWalkIn && !finalTokenNumber) {
+      const dayStart = new Date(apptDate);
+      dayStart.setHours(0, 0, 0, 0);
+      const dayEnd = new Date(dayStart);
+      dayEnd.setDate(dayEnd.getDate() + 1);
+
+      const todaysTokens = await db
+        .select({ tokenNumber: appointments.tokenNumber })
+        .from(appointments)
+        .where(
+          and(
+            eq(appointments.clinicId, clinicId),
+            between(appointments.appointmentDate, dayStart, dayEnd)
+          )
+        );
+
+      const usedNumbers = todaysTokens
+        .map((t) => t.tokenNumber)
+        .filter((t): t is string => !!t)
+        .map((t) => parseInt(t.replace(/^T-?/i, ''), 10))
+        .filter((n) => !isNaN(n));
+
+      const nextToken = (usedNumbers.length > 0 ? Math.max(...usedNumbers) : 0) + 1;
+      finalTokenNumber = `T-${String(nextToken).padStart(3, '0')}`;
+    }
+
     // Generate slot key
     const key = slotKey(doctorId, apptDate);
 
@@ -120,7 +148,7 @@ export async function POST(req: NextRequest) {
         categoryColor: categoryColor || null,
         status: isWalkIn ? 'CONFIRMED' : 'SCHEDULED',
         isWalkIn: isWalkIn || false,
-        tokenNumber: tokenNumber || null,
+        tokenNumber: finalTokenNumber,
         abhaId: abhaId || null,
         plannedProcedures: plannedProcedures || null,
         notes: notes || null,

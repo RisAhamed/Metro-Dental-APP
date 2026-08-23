@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { X, Search } from 'lucide-react';
 import { useAuth } from '@clerk/nextjs';
+import type { CalendarAppointment } from './types';
 
 interface Doctor {
   id: string;
@@ -22,31 +23,18 @@ interface Patient {
   email: string | null;
 }
 
-interface Appointment {
-  appointmentId: string;
-  patientId: string;
-  patientName: string;
-  doctorId: string;
-  doctorName: string;
-  categoryId: string | null;
-  categoryName: string | null;
-  categoryColor: string | null;
-  appointmentDate: string;
-  durationMinutes: number;
-  isWalkIn: boolean;
-  tokenNumber: string | null;
-  abhaId: string | null;
-  plannedProcedures: string | null;
-  notes: string | null;
-  status: string;
-}
-
 interface AppointmentModalProps {
   onClose: () => void;
   onSave: () => void;
   clinicId: string;
   doctors: Doctor[];
-  appointment?: Appointment;
+  appointment?: CalendarAppointment;
+  prefill?: {
+    date?: string; // yyyy-MM-dd
+    time?: string; // HH:mm
+    doctorId?: string;
+    isWalkIn?: boolean;
+  };
 }
 
 export function AppointmentModal({
@@ -55,6 +43,7 @@ export function AppointmentModal({
   clinicId,
   doctors,
   appointment,
+  prefill,
 }: AppointmentModalProps) {
   const { userId } = useAuth();
   const [activeTab, setActiveTab] = useState<'appointment' | 'reminder'>('appointment');
@@ -68,19 +57,19 @@ export function AppointmentModal({
     patientName: appointment?.patientName || '',
     patientPhone: '',
     patientEmail: '',
-    doctorId: appointment?.doctorId || '',
+    doctorId: appointment?.doctorId || prefill?.doctorId || '',
     doctorName: appointment?.doctorName || '',
     categoryId: appointment?.categoryId || '',
     categoryName: appointment?.categoryName || '',
     categoryColor: appointment?.categoryColor || '',
     appointmentDate: appointment
       ? formatDateTimeInput(new Date(appointment.appointmentDate))
-      : '',
+      : prefill?.date || '',
     appointmentTime: appointment
       ? formatTimeInput(new Date(appointment.appointmentDate))
-      : '09:00',
+      : prefill?.time || '09:00',
     durationMinutes: appointment?.durationMinutes || 30,
-    isWalkIn: appointment?.isWalkIn || false,
+    isWalkIn: appointment?.isWalkIn || prefill?.isWalkIn || false,
     tokenNumber: appointment?.tokenNumber || '',
     abhaId: appointment?.abhaId || '',
     plannedProcedures: appointment?.plannedProcedures || '',
@@ -162,11 +151,26 @@ export function AppointmentModal({
       };
 
       if (appointment) {
-        // Update existing appointment
+        // Update existing appointment (full edit)
         const res = await fetch(`/api/appointments/${appointment.appointmentId}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status, notes: form.notes }),
+          body: JSON.stringify({
+            status,
+            patientId: form.patientId,
+            patientName: form.patientName,
+            doctorId: form.doctorId,
+            doctorName: selectedDoctor?.name || form.doctorName,
+            appointmentDate: dateTime.toISOString(),
+            durationMinutes: form.durationMinutes,
+            categoryId: form.categoryId || null,
+            categoryName: form.categoryName || null,
+            categoryColor: form.categoryColor || null,
+            isWalkIn: form.isWalkIn,
+            tokenNumber: form.tokenNumber || null,
+            plannedProcedures: form.plannedProcedures || null,
+            notes: form.notes || null,
+          }),
         });
         if (res.ok) {
           onSave();
