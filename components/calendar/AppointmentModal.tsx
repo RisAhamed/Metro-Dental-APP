@@ -34,6 +34,7 @@ interface AppointmentModalProps {
     time?: string; // HH:mm
     doctorId?: string;
     isWalkIn?: boolean;
+    patient?: { patientId: string; name: string };
   };
 }
 
@@ -50,11 +51,20 @@ export function AppointmentModal({
   const [loading, setLoading] = useState(false);
   const [searchPatient, setSearchPatient] = useState('');
   const [patients, setPatients] = useState<Patient[]>([]);
-  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
+  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(
+    prefill?.patient
+      ? {
+          patientId: prefill.patient.patientId,
+          name: prefill.patient.name,
+          primaryPhone: '',
+          email: null,
+        }
+      : null
+  );
 
   const [form, setForm] = useState({
-    patientId: appointment?.patientId || '',
-    patientName: appointment?.patientName || '',
+    patientId: appointment?.patientId || prefill?.patient?.patientId || '',
+    patientName: appointment?.patientName || prefill?.patient?.name || '',
     patientPhone: '',
     patientEmail: '',
     doctorId: appointment?.doctorId || prefill?.doctorId || '',
@@ -86,6 +96,8 @@ export function AppointmentModal({
   });
 
   const [categories, setCategories] = useState<Category[]>([]);
+  const [localDoctors, setLocalDoctors] = useState<Doctor[]>([]);
+  const allDoctors = doctors.length > 0 ? doctors : localDoctors;
   const [status, setStatus] = useState(appointment?.status || 'SCHEDULED');
 
   useEffect(() => {
@@ -104,6 +116,27 @@ export function AppointmentModal({
       cancelled = true;
     };
   }, [clinicId]);
+
+  // Self-fetch doctors when not provided (e.g., opened from patient profile)
+  useEffect(() => {
+    if (doctors.length > 0) return;
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const res = await fetch(
+          `/api/users?clinicId=${clinicId}&role=GENERAL_DOCTOR&role=CLINIC_ADMIN`
+        );
+        const data = await res.json();
+        if (!cancelled && data.users?.length > 0) setLocalDoctors(data.users);
+      } catch (error) {
+        console.error('Error fetching doctors:', error);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [clinicId, doctors.length]);
 
   const handleSearchPatient = async () => {
     if (searchPatient.length < 2) return;
@@ -140,7 +173,7 @@ export function AppointmentModal({
     }
 
     const dateTime = new Date(`${form.appointmentDate}T${form.appointmentTime}`);
-    const selectedDoctor = doctors.find((d) => d.id === form.doctorId);
+    const selectedDoctor = allDoctors.find((d) => d.id === form.doctorId);
 
     try {
       const payload = {
@@ -363,13 +396,13 @@ export function AppointmentModal({
                     required
                     value={form.doctorId}
                     onChange={(e) => {
-                      const doc = doctors.find((d) => d.id === e.target.value);
+                      const doc = allDoctors.find((d) => d.id === e.target.value);
                       setForm({ ...form, doctorId: e.target.value, doctorName: doc?.name || '' });
                     }}
                     className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
                   >
                     <option value="">Select Doctor</option>
-                    {doctors.map((doc) => (
+                    {allDoctors.map((doc) => (
                       <option key={doc.id} value={doc.id}>
                         {doc.name}
                       </option>
@@ -521,7 +554,7 @@ export function AppointmentModal({
                 <select
                   value={reminder.doctorId}
                   onChange={(e) => {
-                    const doc = doctors.find((d) => d.id === e.target.value);
+                    const doc = allDoctors.find((d) => d.id === e.target.value);
                     setReminder({
                       ...reminder,
                       doctorId: e.target.value,
@@ -531,7 +564,7 @@ export function AppointmentModal({
                   className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
                 >
                   <option value="">All Doctors</option>
-                  {doctors.map((doc) => (
+                  {allDoctors.map((doc) => (
                     <option key={doc.id} value={doc.id}>
                       {doc.name}
                     </option>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@clerk/nextjs';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import {
@@ -15,12 +15,22 @@ import {
   Stethoscope,
   User,
   ArrowLeft,
-  DollarSign,
-  ClipboardList,
-  Activity,
   Plus,
-  type LucideIcon,
 } from 'lucide-react';
+import { PatientSidebar, type PatientSection } from '@/components/patients/PatientSidebar';
+import { PatientAppointments } from '@/components/patients/PatientAppointments';
+import { PatientTreatmentPlans } from '@/components/patients/PatientTreatmentPlans';
+import { PatientCompletedProcedures } from '@/components/patients/PatientCompletedProcedures';
+import { PatientClinicalNotes } from '@/components/patients/PatientClinicalNotes';
+import { PatientTimeline, type TimelineEntry } from '@/components/patients/PatientTimeline';
+import { PatientFiles } from '@/components/patients/PatientFiles';
+import { PatientPrescriptions } from '@/components/patients/PatientPrescriptions';
+import {
+  PatientInvoices,
+  PatientPaymentsSection,
+  PatientLedger,
+} from '@/components/patients/PatientInvoices';
+import { AppointmentModal } from '@/components/calendar/AppointmentModal';
 
 interface Patient {
   patientId: string;
@@ -39,20 +49,17 @@ interface Patient {
     city: string;
     pincode: string;
   } | null;
-  referredById: string | null;
   referredByName: string | null;
   medicalHistory: string[];
   otherHistory: string | null;
   groups: string[];
   languagePreference: string | null;
-  primaryDoctorId: string | null;
   primaryDoctorName: string | null;
   registeredClinicId: string;
   advanceBalance: string;
   totalDue: string;
   totalPaid: string;
   lastVisitDate: string | null;
-  createdAt: string;
 }
 
 interface Group {
@@ -69,14 +76,38 @@ interface Payment {
   notes: string | null;
 }
 
-interface Visit {
+interface VisitFull {
   visitId: string;
   visitDate: string;
   visitType: string;
   chiefComplaint: string | null;
+  diagnosis: string | null;
+  treatmentGiven: string | null;
+  additionalNotes: string | null;
+  doctorsInvolved: Array<{ doctorId: string; doctorName: string; role: string }> | null;
+  dentalChartEntries: Array<{
+    region: string;
+    toothNumber: string;
+    procedureDone: string;
+    notes: string | null;
+  }> | null;
+  vitalSigns: {
+    age?: number | null;
+    weight?: number | null;
+    bloodPressure?: string | null;
+    bloodSugar?: number | null;
+    pulseRate?: number | null;
+    spo2?: number | null;
+  } | null;
+  fileIds: Array<{
+    fileId: string;
+    fileName: string;
+    url: string;
+    type: string;
+  }> | null;
   treatmentCost: string;
   amountPaid: string;
-  paymentStatus: string;
+  paymentStatus: 'UNPAID' | 'PARTIALLY_PAID' | 'PAID' | null;
   status: string;
 }
 
@@ -84,8 +115,28 @@ interface Plan {
   planId: string;
   title: string | null;
   status: string;
+  procedures: Array<{
+    procedureName: string;
+    qty: number;
+    unitCost: number;
+    discount: number;
+    total: number;
+  }> | null;
+  totalCost: string;
+  totalDiscount: string;
   grandTotal: string;
   createdAt: string;
+}
+
+interface AppointmentRow {
+  appointmentId: string;
+  appointmentDate: string;
+  doctorName: string;
+  categoryName: string | null;
+  status: string;
+  isWalkIn: boolean;
+  tokenNumber: string | null;
+  durationMinutes: number;
 }
 
 const PAYMENT_MODES = ['CASH', 'GPAY', 'PAYTM', 'DEBIT_CARD', 'CREDIT_CARD', 'OTHER'];
@@ -93,14 +144,40 @@ const PAYMENT_MODES = ['CASH', 'GPAY', 'PAYTM', 'DEBIT_CARD', 'CREDIT_CARD', 'OT
 const FULL_EDIT_ROLES = ['SUPER_ADMIN', 'CLINIC_ADMIN', 'GENERAL_DOCTOR', 'ASSISTANT_DOCTOR'];
 const BILLING_EDIT_ROLES = ['RECEPTIONIST'];
 
-const TABS = ['Overview', 'Medical History', 'Groups', 'Payments', 'Visits', 'Treatment Plans'];
+const EMR_SECTIONS: PatientSection[] = [
+  'VITAL_SIGNS',
+  'CLINICAL_NOTES',
+  'VISITS',
+  'COMPLETED_PROCEDURES',
+  'FILES',
+];
+
+// Sections whose content is derived from visits data
+const VISIT_DERIVED_SECTIONS: PatientSection[] = [...EMR_SECTIONS, 'INVOICES', 'LEDGER'];
+
+function sectionFromTab(tab: string | null): PatientSection {
+  switch (tab) {
+    case 'appointments': return 'APPOINTMENTS';
+    case 'visits': return 'VISITS';
+    case 'treatment-plans': return 'TREATMENT_PLANS';
+    case 'timeline': return 'TIMELINE';
+    case 'files': return 'FILES';
+    case 'prescriptions': return 'PRESCRIPTIONS';
+    case 'invoices': return 'INVOICES';
+    case 'payments': return 'PAYMENTS';
+    case 'ledger': return 'LEDGER';
+    case 'vital-signs': return 'VITAL_SIGNS';
+    case 'clinical-notes': return 'CLINICAL_NOTES';
+    default: return 'PROFILE';
+  }
+}
 
 const InfoItem = ({
   icon: Icon,
   label,
   value,
 }: {
-  icon: LucideIcon;
+  icon: typeof Phone;
   label: string;
   value: string | null;
 }) => (
@@ -118,14 +195,12 @@ export default function PatientProfilePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { sessionClaims } = useAuth();
+
   const [patient, setPatient] = useState<Patient | null>(null);
   const [groups, setGroups] = useState<Group[]>([]);
-  const [activeTab, setActiveTab] = useState(() => {
-    const tab = searchParams.get('tab');
-    if (tab === 'visits') return 'Visits';
-    if (tab === 'treatment-plans') return 'Treatment Plans';
-    return 'Overview';
-  });
+  const [activeSection, setActiveSection] = useState<PatientSection>(() =>
+    sectionFromTab(searchParams.get('tab'))
+  );
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -138,9 +213,12 @@ export default function PatientProfilePage() {
     date: new Date().toISOString().slice(0, 10),
     notes: '',
   });
-  const [visits, setVisits] = useState<Visit[]>([]);
+  const [visits, setVisits] = useState<VisitFull[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
-  const [clinicalLoading, setClinicalLoading] = useState(false);
+  const [appointments, setAppointments] = useState<AppointmentRow[]>([]);
+  const [timelineEntries, setTimelineEntries] = useState<TimelineEntry[]>([]);
+  const [sectionLoading, setSectionLoading] = useState(false);
+  const [showAppointmentModal, setShowAppointmentModal] = useState(false);
 
   const patientId = Array.isArray(params.patientId)
     ? params.patientId[0]
@@ -197,33 +275,96 @@ export default function PatientProfilePage() {
     };
   }, [patientId]);
 
+  // Visits (needed by EMR sections + invoices/ledger)
   useEffect(() => {
-    if (!patientId || activeTab === 'Overview') return;
+    if (!patientId || !VISIT_DERIVED_SECTIONS.includes(activeSection)) return;
+    if (visits.length > 0) return;
     let cancelled = false;
-    const loadClinical = async () => {
-      setClinicalLoading(true);
+    const load = async () => {
+      setSectionLoading(true);
       try {
-        if (activeTab === 'Visits') {
-          const res = await fetch(`/api/patients/${patientId}/visits`);
-          const data = await res.json();
-          if (!cancelled) setVisits(data.visits || []);
-        }
-        if (activeTab === 'Treatment Plans') {
-          const res = await fetch(`/api/patients/${patientId}/treatment-plans`);
-          const data = await res.json();
-          if (!cancelled) setPlans(data.plans || []);
-        }
+        const res = await fetch(`/api/patients/${patientId}/visits?limit=200`);
+        const data = await res.json();
+        if (!cancelled) setVisits(data.visits || []);
       } catch (error) {
-        console.error('Error loading clinical data:', error);
+        console.error('Error loading visits:', error);
       } finally {
-        if (!cancelled) setClinicalLoading(false);
+        if (!cancelled) setSectionLoading(false);
       }
     };
-    loadClinical();
+    load();
     return () => {
       cancelled = true;
     };
-  }, [patientId, activeTab]);
+  }, [patientId, activeSection, visits.length]);
+
+  // Treatment plans
+  useEffect(() => {
+    if (!patientId || activeSection !== 'TREATMENT_PLANS') return;
+    let cancelled = false;
+    const load = async () => {
+      setSectionLoading(true);
+      try {
+        const res = await fetch(`/api/patients/${patientId}/treatment-plans`);
+        const data = await res.json();
+        if (!cancelled) setPlans(data.plans || []);
+      } catch (error) {
+        console.error('Error loading treatment plans:', error);
+      } finally {
+        if (!cancelled) setSectionLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [patientId, activeSection]);
+
+  // Appointments (all-time for this patient)
+  useEffect(() => {
+    if (!patientId || activeSection !== 'APPOINTMENTS') return;
+    let cancelled = false;
+    const load = async () => {
+      setSectionLoading(true);
+      try {
+        const res = await fetch(
+          `/api/appointments?clinicId=${clinicId}&patientId=${patientId}&startDate=2000-01-01&endDate=2100-01-01`
+        );
+        const data = await res.json();
+        if (!cancelled) setAppointments(data.appointments || []);
+      } catch (error) {
+        console.error('Error loading appointments:', error);
+      } finally {
+        if (!cancelled) setSectionLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [patientId, activeSection, clinicId]);
+
+  // Timeline
+  useEffect(() => {
+    if (!patientId || activeSection !== 'TIMELINE') return;
+    let cancelled = false;
+    const load = async () => {
+      setSectionLoading(true);
+      try {
+        const res = await fetch(`/api/patients/${patientId}/timeline`);
+        const data = await res.json();
+        if (!cancelled) setTimelineEntries(data.entries || []);
+      } catch (error) {
+        console.error('Error loading timeline:', error);
+      } finally {
+        if (!cancelled) setSectionLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [patientId, activeSection]);
 
   const handleSavePayment = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -274,6 +415,72 @@ export default function PatientProfilePage() {
     return new Date(date).toLocaleDateString();
   };
 
+  // Derived data from visits
+  const completedProcedures = useMemo(() => {
+    const out = [];
+    for (const v of visits.filter((x) => x.status === 'COMPLETED')) {
+      const entries = v.dentalChartEntries || [];
+      const doctors = (v.doctorsInvolved || []).map((d) => d.doctorName).filter(Boolean);
+      for (const c of entries) {
+        out.push({
+          visitId: v.visitId,
+          visitDate: v.visitDate,
+          procedureName: c.procedureDone,
+          toothNumber: c.toothNumber,
+          region: c.region,
+          notes: c.notes,
+          cost: Number(v.treatmentCost || 0),
+          discount: 0,
+          total: Number(v.treatmentCost || 0),
+          completedBy: doctors.join(' & ') || null,
+        });
+      }
+    }
+    return out;
+  }, [visits]);
+
+  const derivedInvoices = useMemo(() => {
+    return visits
+      .filter((v) => Number(v.treatmentCost || 0) > 0)
+      .map((v) => {
+        const total = Number(v.treatmentCost || 0);
+        const paid = Math.min(Number(v.amountPaid || 0), total);
+        return {
+          visitId: v.visitId,
+          date: v.visitDate,
+          label:
+            (v.dentalChartEntries && v.dentalChartEntries[0]?.procedureDone) ||
+            v.visitType.replace(/_/g, ' '),
+          total,
+          paid,
+          due: Math.max(total - paid, 0),
+          status:
+            v.paymentStatus ||
+            (paid >= total ? 'PAID' : paid > 0 ? 'PARTIALLY_PAID' : 'UNPAID'),
+        };
+      });
+  }, [visits]);
+
+  const allFiles = useMemo(() => {
+    const out = [];
+    for (const v of visits) {
+      for (const f of v.fileIds || []) {
+        out.push({ ...f, visitId: v.visitId, uploadedDate: v.visitDate });
+      }
+    }
+    return out.sort(
+      (a, b) => new Date(b.uploadedDate).getTime() - new Date(a.uploadedDate).getTime()
+    );
+  }, [visits]);
+
+  const genderAge =
+    [
+      patient ? patient.gender.charAt(0) + patient.gender.slice(1).toLowerCase() : '',
+      patient?.age != null ? `${patient.age} yrs` : '',
+    ]
+      .filter(Boolean)
+      .join(', ') || '';
+
   if (loading) {
     return (
       <div className="text-center py-12 text-gray-500">Loading patient...</div>
@@ -294,8 +501,242 @@ export default function PatientProfilePage() {
     );
   }
 
+  const renderSection = () => {
+    switch (activeSection) {
+      case 'PROFILE':
+        return (
+          <div className="space-y-8">
+            <div>
+              <h3 className="font-semibold text-gray-700 mb-4">Contact Details</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <InfoItem icon={Phone} label="Primary Phone" value={patient.primaryPhone} />
+                <InfoItem icon={Phone} label="Secondary Phone" value={patient.secondaryPhone} />
+                <InfoItem icon={Mail} label="Email" value={patient.email} />
+                <InfoItem icon={MapPin} label="Address" value={patient.address
+                  ? [patient.address.street, patient.address.locality, patient.address.city, patient.address.pincode].filter(Boolean).join(', ')
+                  : null} />
+              </div>
+            </div>
+
+            <div>
+              <h3 className="font-semibold text-gray-700 mb-4">Personal Details</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <InfoItem icon={Calendar} label="Date of Birth" value={formatDate(patient.dateOfBirth)} />
+                <InfoItem icon={Calendar} label="Anniversary" value={formatDate(patient.anniversary)} />
+                <InfoItem icon={Droplet} label="Blood Group" value={patient.bloodGroup} />
+                <InfoItem icon={Users} label="Language Preference" value={patient.languagePreference} />
+                <InfoItem icon={Tag} label="Referred By" value={patient.referredByName} />
+                <InfoItem icon={Stethoscope} label="Primary Doctor" value={patient.primaryDoctorName} />
+              </div>
+            </div>
+
+            <div>
+              <h3 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                <HeartPulse className="h-5 w-5 text-red-500" /> Medical History
+              </h3>
+              {patient.medicalHistory.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {patient.medicalHistory.map((condition) => (
+                    <span key={condition} className="px-3 py-1.5 bg-red-50 text-red-700 text-sm rounded-full">
+                      {condition}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500">No medical conditions recorded.</p>
+              )}
+              {patient.otherHistory && (
+                <p className="text-sm text-gray-700 whitespace-pre-wrap mt-3">{patient.otherHistory}</p>
+              )}
+            </div>
+
+            <div>
+              <h3 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                <Tag className="h-5 w-5 text-blue-500" /> Groups
+              </h3>
+              {patient.groups.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {patient.groups.map((g) => (
+                    <span key={g} className="px-3 py-1.5 bg-blue-50 text-blue-700 text-sm rounded-full">
+                      {groupNamesById[g] || g}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500">No groups assigned.</p>
+              )}
+            </div>
+          </div>
+        );
+
+      case 'VITAL_SIGNS':
+        return (
+          <PatientClinicalNotes
+            visits={visits}
+            loading={sectionLoading}
+            mode="VITALS"
+          />
+        );
+
+      case 'CLINICAL_NOTES':
+        return <PatientClinicalNotes visits={visits} loading={sectionLoading} />;
+
+      case 'COMPLETED_PROCEDURES':
+        return (
+          <PatientCompletedProcedures
+            procedures={completedProcedures}
+            loading={sectionLoading}
+          />
+        );
+
+      case 'FILES':
+        return <PatientFiles files={allFiles} loading={sectionLoading} />;
+
+      case 'PRESCRIPTIONS':
+        return <PatientPrescriptions prescriptions={[]} loading={false} />;
+
+      case 'TIMELINE':
+        return <PatientTimeline entries={timelineEntries} loading={sectionLoading} />;
+
+      case 'APPOINTMENTS':
+        return (
+          <PatientAppointments
+            appointments={appointments}
+            loading={sectionLoading}
+            onAdd={() => setShowAppointmentModal(true)}
+          />
+        );
+
+      case 'TREATMENT_PLANS':
+        return (
+          <PatientTreatmentPlans plans={plans} loading={sectionLoading} patientId={patientId} />
+        );
+
+      case 'VISITS':
+        return (
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold text-gray-700 flex items-center gap-2">
+                <Stethoscope className="h-5 w-5 text-blue-500" /> Visits (Sessions)
+              </h3>
+              {canManageSessions && (
+                <button
+                  onClick={() => router.push(`/patients/${patientId}/visits/new`)}
+                  className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white text-sm rounded-md hover:bg-green-700"
+                >
+                  <Plus className="h-4 w-4" /> New Session
+                </button>
+              )}
+            </div>
+            {sectionLoading ? (
+              <p className="text-sm text-gray-500">Loading visits...</p>
+            ) : visits.length === 0 ? (
+              <p className="text-sm text-gray-500">No visits recorded yet.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Complaint</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Payment</th>
+                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {visits.map((v) => (
+                      <tr key={v.visitId} className="hover:bg-gray-50">
+                        <td className="px-4 py-2 text-sm text-gray-700">{formatDate(v.visitDate)}</td>
+                        <td className="px-4 py-2 text-sm text-gray-700">{v.visitType.replace(/_/g, ' ')}</td>
+                        <td className="px-4 py-2 text-sm text-gray-700 max-w-[200px] truncate">{v.chiefComplaint || '—'}</td>
+                        <td className="px-4 py-2">
+                          <span className={`px-2 py-0.5 text-xs rounded-full ${
+                            v.status === 'COMPLETED'
+                              ? 'bg-green-100 text-green-700'
+                              : 'bg-yellow-100 text-yellow-700'
+                          }`}>
+                            {v.status}
+                          </span>
+                        </td>
+                        <td className="px-4 py-2 text-sm text-gray-700">
+                          <span className={`px-2 py-0.5 text-xs rounded-full ${
+                            v.paymentStatus === 'PAID'
+                              ? 'bg-green-100 text-green-700'
+                              : v.paymentStatus === 'PARTIALLY_PAID'
+                                ? 'bg-yellow-100 text-yellow-700'
+                                : 'bg-red-100 text-red-700'
+                          }`}>
+                            {(v.paymentStatus || 'UNPAID').replace(/_/g, ' ')}
+                          </span>
+                        </td>
+                        <td className="px-4 py-2 text-right whitespace-nowrap">
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => router.push(`/patients/${patientId}/visits/${v.visitId}/view`)}
+                              className="px-2.5 py-1.5 text-xs text-gray-700 bg-gray-50 border border-gray-200 rounded-md hover:bg-gray-100"
+                            >
+                              View Session
+                            </button>
+                            {v.status !== 'COMPLETED' && canBillingEdit && (
+                              <button
+                                onClick={() => router.push(`/patients/${patientId}/visits/${v.visitId}/edit`)}
+                                className="px-2.5 py-1.5 text-xs text-blue-700 bg-blue-50 rounded-md hover:bg-blue-100"
+                              >
+                                {canFullEdit ? 'Edit' : 'Edit Billing'}
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        );
+
+      case 'INVOICES':
+        return <PatientInvoices invoices={derivedInvoices} loading={sectionLoading} />;
+
+      case 'PAYMENTS':
+        return (
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-gray-700">All Payments</h3>
+              <button
+                onClick={() => setShowPaymentModal(true)}
+                className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"
+              >
+                <Plus className="h-4 w-4" /> Record Payment
+              </button>
+            </div>
+            <PatientPaymentsSection payments={payments} loading={false} />
+          </div>
+        );
+
+      case 'LEDGER':
+        return (
+          <PatientLedger
+            patient={patient}
+            summary={{
+              totalInvoiced: derivedInvoices.reduce((s, i) => s + i.total, 0),
+              totalPaid: Number(patient.totalPaid || 0),
+              balanceDue: Number(patient.totalDue || 0),
+            }}
+            loading={sectionLoading}
+          />
+        );
+
+      default:
+        return null;
+    }
+  };
+
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
+    <div className="space-y-6">
       {/* Header */}
       <div>
         <button
@@ -306,7 +747,7 @@ export default function PatientProfilePage() {
         </button>
 
         <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-start justify-between">
+          <div className="flex items-start justify-between flex-wrap gap-3">
             <div className="flex items-center gap-4">
               <div className="h-14 w-14 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">
                 <User className="h-7 w-7" />
@@ -354,20 +795,24 @@ export default function PatientProfilePage() {
                   </span>
                 </p>
               </div>
-              <button
-                onClick={() => setShowPaymentModal(true)}
-                className="mt-3 px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"
-              >
-                Record Payment
-              </button>
-              {canManageSessions && (
-                <button
-                  onClick={() => router.push(`/patients/${patientId}/visits/new`)}
-                  className="mt-3 ml-2 flex items-center gap-1 px-4 py-2 bg-green-600 text-white text-sm rounded-md hover:bg-green-700"
-                >
-                  <Plus className="h-4 w-4" /> New Session
-                </button>
-              )}
+              <div className="mt-3 flex gap-2 justify-end">
+                {canBillingEdit && (
+                  <button
+                    onClick={() => setShowPaymentModal(true)}
+                    className="px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"
+                  >
+                    Record Payment
+                  </button>
+                )}
+                {canManageSessions && (
+                  <button
+                    onClick={() => router.push(`/patients/${patientId}/visits/new`)}
+                    className="flex items-center gap-1 px-4 py-2 bg-green-600 text-white text-sm rounded-md hover:bg-green-700"
+                  >
+                    <Plus className="h-4 w-4" /> New Session
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
@@ -379,296 +824,46 @@ export default function PatientProfilePage() {
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-2 border-b border-gray-200">
-        {TABS.map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
-              activeTab === tab
-                ? 'bg-white text-blue-700 border border-b-0 border-gray-200'
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            {tab}
-          </button>
-        ))}
+      {/* Sidebar + Section content */}
+      <div className="flex gap-5 items-start">
+        <PatientSidebar
+          patientName={patient.name}
+          patientId={patient.patientId}
+          genderAge={genderAge}
+          activeSection={activeSection}
+          onSectionChange={(s) => setActiveSection(s)}
+        />
+
+        <div className="flex-1 min-w-0 bg-white rounded-lg shadow p-6 min-h-[300px]">
+          {renderSection()}
+        </div>
       </div>
 
-      {/* Tab content */}
-      <div className="bg-white rounded-lg shadow p-6 min-h-[300px]">
-        {activeTab === 'Overview' && (
-          <div className="space-y-8">
-            <div>
-              <h3 className="font-semibold text-gray-700 mb-4">Contact Details</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <InfoItem icon={Phone} label="Primary Phone" value={patient.primaryPhone} />
-                <InfoItem icon={Phone} label="Secondary Phone" value={patient.secondaryPhone} />
-                <InfoItem icon={Mail} label="Email" value={patient.email} />
-                <InfoItem icon={MapPin} label="Address" value={patient.address
-                  ? [patient.address.street, patient.address.locality, patient.address.city, patient.address.pincode].filter(Boolean).join(', ')
-                  : null} />
-              </div>
-            </div>
+      {/* Add Appointment Modal */}
+      {showAppointmentModal && (
+        <AppointmentModal
+          onClose={() => setShowAppointmentModal(false)}
+          onSave={() => {
+            setShowAppointmentModal(false);
+            if (activeSection === 'APPOINTMENTS') {
+              setSectionLoading(true);
+              fetch(
+                `/api/appointments?clinicId=${clinicId}&patientId=${patientId}&startDate=2000-01-01&endDate=2100-01-01`
+              )
+                .then((r) => r.json())
+                .then((d) => setAppointments(d.appointments || []))
+                .finally(() => setSectionLoading(false));
+            }
+          }}
+          clinicId={clinicId}
+          doctors={[]}
+          prefill={{
+            patient: { patientId: patient.patientId, name: patient.name },
+          }}
+        />
+      )}
 
-            <div>
-              <h3 className="font-semibold text-gray-700 mb-4">Personal Details</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <InfoItem icon={Calendar} label="Date of Birth" value={formatDate(patient.dateOfBirth)} />
-                <InfoItem icon={Calendar} label="Anniversary" value={formatDate(patient.anniversary)} />
-                <InfoItem icon={Droplet} label="Blood Group" value={patient.bloodGroup} />
-                <InfoItem icon={Users} label="Language Preference" value={patient.languagePreference} />
-                <InfoItem icon={Tag} label="Referred By" value={patient.referredByName} />
-                <InfoItem icon={Stethoscope} label="Primary Doctor" value={patient.primaryDoctorName} />
-              </div>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'Medical History' && (
-          <div className="space-y-6">
-            <div>
-              <h3 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                <HeartPulse className="h-5 w-5 text-red-500" /> Conditions
-              </h3>
-              {patient.medicalHistory.length > 0 ? (
-                <div className="flex flex-wrap gap-2">
-                  {patient.medicalHistory.map((condition) => (
-                    <span
-                      key={condition}
-                      className="px-3 py-1.5 bg-red-50 text-red-700 text-sm rounded-full"
-                    >
-                      {condition}
-                    </span>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-gray-500">No medical conditions recorded.</p>
-              )}
-            </div>
-
-            <div>
-              <h3 className="font-semibold text-gray-700 mb-3">Other History</h3>
-              <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                {patient.otherHistory || 'No other history recorded.'}
-              </p>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'Groups' && (
-          <div>
-            <h3 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
-              <Tag className="h-5 w-5 text-blue-500" /> Assigned Groups
-            </h3>
-            {patient.groups.length > 0 ? (
-              <div className="flex flex-wrap gap-2">
-                {patient.groups.map((g) => (
-                  <span
-                    key={g}
-                    className="px-3 py-1.5 bg-blue-50 text-blue-700 text-sm rounded-full"
-                  >
-                    {groupNamesById[g] || g}
-                  </span>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-gray-500">No groups assigned.</p>
-            )}
-          </div>
-        )}
-
-        {activeTab === 'Payments' && (
-          <div>
-            <h3 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
-              <DollarSign className="h-5 w-5 text-green-500" /> Payment History
-            </h3>
-            {payments.length === 0 ? (
-              <p className="text-sm text-gray-500">No payments recorded yet.</p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Mode</th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Recorded By</th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Notes</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {payments.map((p) => (
-                      <tr key={p.paymentId}>
-                        <td className="px-4 py-2 text-sm text-gray-700">{formatDate(p.date)}</td>
-                        <td className="px-4 py-2 text-sm font-semibold text-gray-900">
-                          ₹{Number(p.amount || 0).toFixed(2)}
-                        </td>
-                        <td className="px-4 py-2 text-sm text-gray-500">{p.mode}</td>
-                        <td className="px-4 py-2 text-sm text-gray-500">{p.recordedByName}</td>
-                        <td className="px-4 py-2 text-sm text-gray-500">{p.notes || '—'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      {activeTab === 'Visits' && (
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-semibold text-gray-700 flex items-center gap-2">
-                <Activity className="h-5 w-5 text-blue-500" /> Visits (Sessions)
-              </h3>
-              {canManageSessions && (
-                <button
-                  onClick={() => router.push(`/patients/${patientId}/visits/new`)}
-                  className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white text-sm rounded-md hover:bg-green-700"
-                >
-                  <Plus className="h-4 w-4" /> New Session
-                </button>
-              )}
-            </div>
-            {clinicalLoading ? (
-              <p className="text-sm text-gray-500">Loading visits...</p>
-            ) : visits.length === 0 ? (
-              <p className="text-sm text-gray-500">No visits recorded yet.</p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Complaint</th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Payment</th>
-                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {visits.map((v) => (
-                      <tr key={v.visitId} className="hover:bg-gray-50">
-                        <td className="px-4 py-2 text-sm text-gray-700">{formatDate(v.visitDate)}</td>
-                        <td className="px-4 py-2 text-sm text-gray-700">{v.visitType.replace(/_/g, ' ')}</td>
-                        <td className="px-4 py-2 text-sm text-gray-700 max-w-[200px] truncate">{v.chiefComplaint || '—'}</td>
-                        <td className="px-4 py-2">
-                          <span className={`px-2 py-0.5 text-xs rounded-full ${
-                            v.status === 'COMPLETED'
-                              ? 'bg-green-100 text-green-700'
-                              : 'bg-yellow-100 text-yellow-700'
-                          }`}>
-                            {v.status}
-                          </span>
-                        </td>
-                        <td className="px-4 py-2 text-sm text-gray-700">
-                          <span className={`px-2 py-0.5 text-xs rounded-full ${
-                            v.paymentStatus === 'PAID'
-                              ? 'bg-green-100 text-green-700'
-                              : v.paymentStatus === 'PARTIALLY_PAID'
-                                ? 'bg-yellow-100 text-yellow-700'
-                                : 'bg-red-100 text-red-700'
-                          }`}>
-                            {v.paymentStatus.replace(/_/g, ' ')}
-                          </span>
-                        </td>
-                        <td className="px-4 py-2 text-right whitespace-nowrap">
-                          <div className="flex items-center justify-end gap-2">
-                            <button
-                              onClick={() => router.push(`/patients/${patientId}/visits/${v.visitId}/view`)}
-                              className="px-2.5 py-1.5 text-xs text-gray-700 bg-gray-50 border border-gray-200 rounded-md hover:bg-gray-100"
-                            >
-                              View Session
-                            </button>
-                            {v.status !== 'COMPLETED' && canBillingEdit && (
-                              <button
-                                onClick={() => router.push(`/patients/${patientId}/visits/${v.visitId}/edit`)}
-                                className="px-2.5 py-1.5 text-xs text-blue-700 bg-blue-50 rounded-md hover:bg-blue-100"
-                              >
-                                {canFullEdit ? 'Edit' : 'Edit Billing'}
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
-
-        {activeTab === 'Treatment Plans' && (
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-semibold text-gray-700 flex items-center gap-2">
-                <ClipboardList className="h-5 w-5 text-purple-500" /> Treatment Plans
-              </h3>
-              <button
-                onClick={() => router.push(`/patients/${patientId}/treatment-plans/new`)}
-                className="flex items-center gap-1 px-3 py-1.5 bg-purple-600 text-white text-sm rounded-md hover:bg-purple-700"
-              >
-                <Plus className="h-4 w-4" /> New Treatment Plan
-              </button>
-            </div>
-            {clinicalLoading ? (
-              <p className="text-sm text-gray-500">Loading treatment plans...</p>
-            ) : plans.length === 0 ? (
-              <p className="text-sm text-gray-500">No treatment plans yet.</p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Plan</th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Created</th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Grand Total</th>
-                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {plans.map((p) => (
-                      <tr key={p.planId} className="hover:bg-gray-50">
-                        <td className="px-4 py-2 text-sm text-gray-700">{p.title || 'Untitled Plan'}</td>
-                        <td className="px-4 py-2">
-                          <span className={`px-2 py-0.5 text-xs rounded-full ${
-                            p.status === 'ACTIVE'
-                              ? 'bg-green-100 text-green-700'
-                              : p.status === 'COMPLETED'
-                                ? 'bg-blue-100 text-blue-700'
-                                : 'bg-yellow-100 text-yellow-700'
-                          }`}>
-                            {p.status}
-                          </span>
-                        </td>
-                        <td className="px-4 py-2 text-sm text-gray-700">{formatDate(p.createdAt)}</td>
-                        <td className="px-4 py-2 text-sm font-semibold text-gray-900">
-                          ₹{Number(p.grandTotal || 0).toLocaleString('en-IN')}
-                        </td>
-                        <td className="px-4 py-2 text-right">
-                          <button
-                            onClick={() => router.push(`/patients/${patientId}/treatment-plans/${p.planId}`)}
-                            className="px-2.5 py-1.5 text-xs text-blue-700 bg-blue-50 rounded-md hover:bg-blue-100"
-                          >
-                            View
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Record Payment Modal */}
+      {/* Record Payment Modal */}
       {showPaymentModal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">

@@ -18,6 +18,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const clinicId = searchParams.get('clinicId');
   const doctorId = searchParams.get('doctorId');
+  const patientId = searchParams.get('patientId');
   const startDate = searchParams.get('startDate');
   const endDate = searchParams.get('endDate');
 
@@ -34,6 +35,10 @@ export async function GET(req: NextRequest) {
       eq(appointments.clinicId, clinicId),
       between(appointments.appointmentDate, start, endExclusive),
     ];
+
+    if (patientId) {
+      conditions.push(eq(appointments.patientId, patientId));
+    }
 
     if (doctorId && doctorId !== 'all') {
       conditions.push(eq(appointments.doctorId, doctorId));
