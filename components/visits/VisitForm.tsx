@@ -614,7 +614,7 @@ export function VisitForm({ patientId, patientName, clinicId, visitId, initial, 
                 <FileText className="h-4 w-4 text-gray-400 shrink-0" />
                 <span className="text-sm font-medium text-gray-800 flex-1 truncate">{f.fileName}</span>
                 <a
-                  href={f.url || `/api/upload/visit-file/download?key=${encodeURIComponent(f.fileId)}&name=${encodeURIComponent(f.fileName)}`}
+                  href={`/api/upload/visit-file/download?key=${encodeURIComponent(f.fileId)}&name=${encodeURIComponent(f.fileName)}&inline=${f.type?.startsWith('image/') ? 1 : 0}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-1 text-sm text-blue-600 hover:underline"

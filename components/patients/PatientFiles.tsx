@@ -23,6 +23,12 @@ function fileKind(type: string): string {
   return 'File';
 }
 
+function fileAccessUrl(f: PatientFile): string {
+  return `/api/upload/visit-file/download?key=${encodeURIComponent(
+    f.fileId
+  )}&name=${encodeURIComponent(f.fileName)}&inline=${f.type?.startsWith('image/') ? 1 : 0}`;
+}
+
 export function PatientFiles({ files, loading }: PatientFilesProps) {
   return (
     <div>
@@ -46,7 +52,7 @@ export function PatientFiles({ files, loading }: PatientFilesProps) {
             >
               <div className="min-w-0">
                 <a
-                  href={f.url}
+                  href={fileAccessUrl(f)}
                   target="_blank"
                   rel="noreferrer"
                   className="text-sm font-medium text-blue-600 hover:underline truncate block"
@@ -58,7 +64,7 @@ export function PatientFiles({ files, loading }: PatientFilesProps) {
                 </p>
               </div>
               <a
-                href={f.url}
+                href={fileAccessUrl(f)}
                 target="_blank"
                 rel="noreferrer"
                 className="px-3 py-1.5 text-xs bg-blue-50 text-blue-700 rounded-md hover:bg-blue-100 whitespace-nowrap"

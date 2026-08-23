@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { uploadToR2, deleteFromR2, r2PublicUrl } from '@/lib/r2';
+import { uploadToR2, deleteFromR2 } from '@/lib/r2';
 import { canManageClinical } from '@/lib/auth/claims';
+
+// Clients must fetch files via the authenticated download route (which
+// redirects to a short-lived presigned R2 URL) — never via direct endpoint links.
+function fileAccessUrl(key: string): string {
+  return `/api/upload/visit-file/download?key=${encodeURIComponent(key)}`;
+}
 
 export async function POST(req: NextRequest) {
   const { sessionClaims } = await auth();
@@ -32,7 +38,7 @@ export async function POST(req: NextRequest) {
       file: {
         fileId: key,
         fileName: file.name,
-        url: r2PublicUrl(key),
+        url: fileAccessUrl(key),
         type: file.type || 'application/octet-stream',
       },
     });

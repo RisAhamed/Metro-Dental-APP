@@ -109,10 +109,12 @@ function entryBody(entry: TimelineEntry): React.ReactNode {
           <span className="font-medium">{formatMoney(d.grandTotal as number)}</span>
         </p>
       );
-    case 'FILE':
+    case 'FILE': {
+      // entry.id = `file_<r2-key>`; serve via authenticated presign redirect
+      const key = entry.id.replace(/^file_/, '');
       return (
         <a
-          href={String(d.url)}
+          href={`/api/upload/visit-file/download?key=${encodeURIComponent(key)}&name=${encodeURIComponent(entry.title)}`}
           target="_blank"
           rel="noreferrer"
           onClick={(e) => e.stopPropagation()}
@@ -121,6 +123,7 @@ function entryBody(entry: TimelineEntry): React.ReactNode {
           View / Download — {entry.title}
         </a>
       );
+    }
     default:
       return null;
   }

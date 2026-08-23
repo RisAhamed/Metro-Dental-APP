@@ -1,42 +1,49 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { getFromR2 } from '@/lib/r2';
+import { getPresignedUrl, extractKeyFromUrl } from '@/lib/r2';
 import { canViewClinical } from '@/lib/auth/claims';
 
+// GET /api/upload/visit-file/download?key=<r2-key>  (or &url=<stored-url>)
+//
+// The browser must never hit the R2 S3 endpoint directly — it requires SigV4
+// auth and rejects unauthenticated requests (InvalidArgument/Authorization).
+// Instead this authenticated route issues a short-lived presigned GET URL and
+// 302-redirects to it, so no Authorization header ever reaches R2.
 export async function GET(req: NextRequest) {
   const { sessionClaims } = await auth();
   if (!canViewClinical(sessionClaims)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
   }
 
-  const key = req.nextUrl.searchParams.get('key');
-  const fileName = req.nextUrl.searchParams.get('name') || 'file';
+  const params = req.nextUrl.searchParams;
+  const fileName = params.get('name') || 'file';
+  const inline = params.get('inline') === '1';
+
+  let key = params.get('key');
+  if (!key) {
+    const storedUrl = params.get('url');
+    if (storedUrl && !storedUrl.startsWith('/')) {
+      key = extractKeyFromUrl(storedUrl);
+    }
+    // Legacy fallback: older records may have passed a bare fileId
+    if (!key && storedUrl?.startsWith('visits/')) {
+      key = storedUrl;
+    }
+  }
 
   if (!key) {
     return NextResponse.json({ error: 'Missing file key' }, { status: 400 });
   }
 
   try {
-    const result = await getFromR2(key);
-    if (!result.Body) {
-      return NextResponse.json({ error: 'File not found' }, { status: 404 });
-    }
-
-    const chunks: Uint8Array[] = [];
-    for await (const chunk of result.Body as AsyncIterable<Uint8Array>) {
-      chunks.push(chunk);
-    }
-    const body = Buffer.concat(chunks);
-
-    return new NextResponse(body, {
-      status: 200,
-      headers: {
-        'Content-Type': result.ContentType || 'application/octet-stream',
-        'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(fileName)}`,
-      },
+    const presigned = await getPresignedUrl(key, {
+      expiresIn: 300,
+      fileName,
+      inline,
     });
+    return NextResponse.redirect(presigned, 302);
   } catch (error) {
     console.error('Visit File Download Error:', error);
-    return NextResponse.json({ error: 'Failed to download file' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to generate file access URL' }, { status: 500 });
   }
 }
