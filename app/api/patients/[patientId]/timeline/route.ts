@@ -17,7 +17,9 @@ export interface TimelineEntry {
     | 'PAYMENT'
     | 'TREATMENT_PLAN'
     | 'FILE'
-    | 'CLINICAL_NOTE';
+    | 'CLINICAL_NOTE'
+    | 'INVOICE'
+    | 'VITAL_SIGNS';
   date: string;
   title: string;
   details: Record<string, unknown>;
@@ -97,6 +99,23 @@ export async function GET(
         },
       });
 
+      // Vital signs entry
+      if (
+        v.vitalSigns &&
+        Object.values(v.vitalSigns).some((val) => val !== null && val !== undefined && val !== '')
+      ) {
+        entries.push({
+          id: `vitals_${v.visitId}`,
+          type: 'VITAL_SIGNS',
+          date: new Date(v.visitDate).toISOString(),
+          title: 'Vital Signs recorded',
+          details: {
+            vitalSigns: v.vitalSigns,
+            doctorsInvolved: v.doctorsInvolved || [],
+          },
+        });
+      }
+
       // Clinical note entry
       if (v.chiefComplaint || v.diagnosis || v.treatmentGiven) {
         entries.push({
@@ -109,35 +128,34 @@ export async function GET(
             diagnosis: v.diagnosis,
             treatmentGiven: v.treatmentGiven,
             additionalNotes: v.additionalNotes,
-            vitalSigns: v.vitalSigns,
+            injectionGiven: v.injectionGiven,
+            toothNumbers: (v.dentalChartEntries || [])
+              .map((c) => c.toothNumber)
+              .filter(Boolean),
             doctorsInvolved: v.doctorsInvolved || [],
           },
         });
       }
 
-      // Completed procedures from dental chart
-      const chartEntries = v.dentalChartEntries || [];
-      const doctorNames = (v.doctorsInvolved || [])
-        .map((d) => d.doctorName)
-        .filter(Boolean);
-      for (const [i, c] of chartEntries.entries()) {
+      // Invoice entry (derived from visit billing)
+      if (Number(v.treatmentCost || 0) > 0) {
+        const total = Number(v.treatmentCost);
+        const paid = Math.min(Number(v.amountPaid || 0), total);
+        const due = Math.max(total - paid, 0);
         entries.push({
-          id: `proc_${v.visitId}_${i}`,
-          type: 'PROCEDURE',
+          id: `inv_${v.visitId}`,
+          type: 'INVOICE',
           date: new Date(v.visitDate).toISOString(),
-          title: c.procedureDone,
+          title: `Invoice for ${(v.visitType || 'VISIT').replace(/_/g, ' ').toLowerCase()} session`,
           details: {
-            toothNumber: c.toothNumber,
-            region: c.region,
-            notes: c.notes,
-            cost: v.treatmentCost ? Number(v.treatmentCost) : 0,
-            discount: Math.max(
-              Number(v.treatmentCost || 0) - Number(v.amountPaid || 0),
-              0
-            ),
-            total: Number(v.amountPaid || 0),
-            completedBy: doctorNames.join(' & ') || null,
-            status: v.status,
+            invoiceNumber: `INV-${v.visitId.slice(-6).toUpperCase()}`,
+            total,
+            paid,
+            due,
+            status:
+              v.paymentStatus ||
+              (paid >= total ? 'PAID' : paid > 0 ? 'PARTIALLY_PAID' : 'UNPAID'),
+            procedures: (v.dentalChartEntries || []).map((c) => c.procedureDone),
           },
         });
       }
@@ -171,6 +189,31 @@ export async function GET(
           totalDiscount: Number(p.totalDiscount || 0),
         },
       });
+
+      // Completed procedures from the treatment plan
+      for (const [i, proc] of (p.procedures || []).entries()) {
+        if (proc.status === 'COMPLETED') {
+          entries.push({
+            id: `proc_${p.planId}_${i}`,
+            type: 'PROCEDURE',
+            date: proc.completedAt
+              ? new Date(proc.completedAt).toISOString()
+              : new Date(p.updatedAt || p.createdAt).toISOString(),
+            title: proc.procedureName,
+            details: {
+              toothNumbers: proc.toothNumbers,
+              isFullMouth: proc.isFullMouth,
+              cost: proc.qty * proc.unitCost,
+              discount: proc.discount,
+              total: proc.total,
+              completedBy: proc.completedByName || null,
+              notes: proc.notes,
+              planId: p.planId,
+              planTitle: p.title,
+            },
+          });
+        }
+      }
     }
 
     for (const p of payments) {

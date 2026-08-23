@@ -16,11 +16,16 @@ import {
   User,
   ArrowLeft,
   Plus,
+  Pencil,
 } from 'lucide-react';
 import { PatientSidebar, type PatientSection } from '@/components/patients/PatientSidebar';
 import { PatientAppointments } from '@/components/patients/PatientAppointments';
 import { PatientTreatmentPlans } from '@/components/patients/PatientTreatmentPlans';
-import { PatientCompletedProcedures } from '@/components/patients/PatientCompletedProcedures';
+import {
+  PatientCompletedProcedures,
+  type CompletedProcedure,
+} from '@/components/patients/PatientCompletedProcedures';
+import { VitalSignsDisplay } from '@/components/patients/VitalSignsDisplay';
 import { PatientClinicalNotes } from '@/components/patients/PatientClinicalNotes';
 import { PatientTimeline, type TimelineEntry } from '@/components/patients/PatientTimeline';
 import { PatientFiles } from '@/components/patients/PatientFiles';
@@ -30,6 +35,7 @@ import {
   PatientPaymentsSection,
   PatientLedger,
 } from '@/components/patients/PatientInvoices';
+import { PatientProfileEdit, type EditablePatient } from '@/components/patients/PatientProfileEdit';
 import { AppointmentModal } from '@/components/calendar/AppointmentModal';
 
 interface Patient {
@@ -116,11 +122,18 @@ interface Plan {
   title: string | null;
   status: string;
   procedures: Array<{
+    procedureId: string;
     procedureName: string;
     qty: number;
     unitCost: number;
     discount: number;
     total: number;
+    toothNumbers?: number[] | null;
+    isFullMouth?: boolean;
+    notes?: string | null;
+    status?: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED';
+    completedAt?: string | null;
+    completedByName?: string | null;
   }> | null;
   totalCost: string;
   totalDiscount: string;
@@ -219,6 +232,7 @@ export default function PatientProfilePage() {
   const [timelineEntries, setTimelineEntries] = useState<TimelineEntry[]>([]);
   const [sectionLoading, setSectionLoading] = useState(false);
   const [showAppointmentModal, setShowAppointmentModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
 
   const patientId = Array.isArray(params.patientId)
     ? params.patientId[0]
@@ -298,9 +312,10 @@ export default function PatientProfilePage() {
     };
   }, [patientId, activeSection, visits.length]);
 
-  // Treatment plans
+  // Treatment plans (needed for plans list + completed procedures)
   useEffect(() => {
-    if (!patientId || activeSection !== 'TREATMENT_PLANS') return;
+    if (!patientId || !['TREATMENT_PLANS', 'COMPLETED_PROCEDURES'].includes(activeSection)) return;
+    if (plans.length > 0) return;
     let cancelled = false;
     const load = async () => {
       setSectionLoading(true);
@@ -318,7 +333,7 @@ export default function PatientProfilePage() {
     return () => {
       cancelled = true;
     };
-  }, [patientId, activeSection]);
+  }, [patientId, activeSection, plans.length]);
 
   // Appointments (all-time for this patient)
   useEffect(() => {
@@ -415,29 +430,32 @@ export default function PatientProfilePage() {
     return new Date(date).toLocaleDateString();
   };
 
-  // Derived data from visits
-  const completedProcedures = useMemo(() => {
-    const out = [];
-    for (const v of visits.filter((x) => x.status === 'COMPLETED')) {
-      const entries = v.dentalChartEntries || [];
-      const doctors = (v.doctorsInvolved || []).map((d) => d.doctorName).filter(Boolean);
-      for (const c of entries) {
+  // Completed procedures come from treatment plans (NOT sessions)
+  const completedProcedures = useMemo<CompletedProcedure[]>(() => {
+    const out: CompletedProcedure[] = [];
+    for (const plan of plans) {
+      for (const p of plan.procedures || []) {
+        if ((p.status || 'PENDING') !== 'COMPLETED') continue;
         out.push({
-          visitId: v.visitId,
-          visitDate: v.visitDate,
-          procedureName: c.procedureDone,
-          toothNumber: c.toothNumber,
-          region: c.region,
-          notes: c.notes,
-          cost: Number(v.treatmentCost || 0),
-          discount: 0,
-          total: Number(v.treatmentCost || 0),
-          completedBy: doctors.join(' & ') || null,
+          planId: plan.planId,
+          planTitle: plan.title,
+          procedureId: p.procedureId,
+          procedureName: p.procedureName,
+          toothNumbers: p.toothNumbers ?? null,
+          isFullMouth: !!p.isFullMouth,
+          qty: p.qty,
+          unitCost: p.unitCost,
+          cost: p.qty * p.unitCost,
+          discount: p.discount,
+          total: p.total,
+          completedBy: p.completedByName ?? null,
+          completedAt: p.completedAt ?? null,
+          notes: p.notes ?? null,
         });
       }
     }
     return out;
-  }, [visits]);
+  }, [plans]);
 
   const derivedInvoices = useMemo(() => {
     return visits
@@ -570,13 +588,7 @@ export default function PatientProfilePage() {
         );
 
       case 'VITAL_SIGNS':
-        return (
-          <PatientClinicalNotes
-            visits={visits}
-            loading={sectionLoading}
-            mode="VITALS"
-          />
-        );
+        return <VitalSignsDisplay visits={visits} loading={sectionLoading} />;
 
       case 'CLINICAL_NOTES':
         return <PatientClinicalNotes visits={visits} loading={sectionLoading} />;
@@ -587,9 +599,7 @@ export default function PatientProfilePage() {
             procedures={completedProcedures}
             loading={sectionLoading}
           />
-        );
-
-      case 'FILES':
+        );      case 'FILES':
         return <PatientFiles files={allFiles} loading={sectionLoading} />;
 
       case 'PRESCRIPTIONS':
@@ -770,6 +780,13 @@ export default function PatientProfilePage() {
                   {patient.age !== null && (
                     <span className="text-sm text-gray-500">• {patient.age} yrs</span>
                   )}
+                  <button
+                    onClick={() => setShowEditModal(true)}
+                    title="Edit patient details"
+                    className="inline-flex items-center gap-1 px-2 py-0.5 text-xs text-blue-600 border border-blue-200 rounded-full hover:bg-blue-50"
+                  >
+                    <Pencil className="h-3 w-3" /> Edit
+                  </button>
                 </div>
               </div>
             </div>
@@ -838,6 +855,19 @@ export default function PatientProfilePage() {
           {renderSection()}
         </div>
       </div>
+
+      {/* Edit Patient Modal */}
+      {showEditModal && (
+        <PatientProfileEdit
+          patient={patient as unknown as EditablePatient}
+          clinicId={clinicId}
+          onClose={() => setShowEditModal(false)}
+          onSaved={(updated) => {
+            setPatient(updated as unknown as Patient);
+            setShowEditModal(false);
+          }}
+        />
+      )}
 
       {/* Add Appointment Modal */}
       {showAppointmentModal && (

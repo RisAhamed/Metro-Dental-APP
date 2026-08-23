@@ -64,3 +64,34 @@ export function SectionCard({ children }: { children: React.ReactNode }) {
     <div className="space-y-3">{children}</div>
   );
 }
+
+// Auto-expanding textarea (grows as the user types, minimum `minRows`)
+export function AutoTextarea({
+  value,
+  onChange,
+  placeholder,
+  minRows = 4,
+  className = '',
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  minRows?: number;
+  className?: string;
+}) {
+  return (
+    <textarea
+      rows={minRows}
+      wrap="soft"
+      placeholder={placeholder}
+      className={`w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y min-h-[96px] leading-relaxed ${className}`}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      onInput={(e) => {
+        const el = e.currentTarget;
+        el.style.height = 'auto';
+        el.style.height = `${el.scrollHeight}px`;
+      }}
+    />
+  );
+}

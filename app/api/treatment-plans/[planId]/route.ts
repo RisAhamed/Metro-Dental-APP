@@ -7,6 +7,10 @@ import { eq } from 'drizzle-orm';
 
 const PLAN_STATUSES = ['DRAFT', 'ACTIVE', 'COMPLETED'];
 
+type PlanProcedureItem = NonNullable<
+  typeof treatmentPlans.$inferSelect['procedures']
+>[number];
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ planId: string }> }
@@ -64,16 +68,34 @@ export async function PUT(
     }
 
     const prev = existing[0];
-    const procList = body.procedures !== undefined ? body.procedures : prev.procedures;
-    const totalCost = (procList || []).reduce((sum: number, p: { total?: number }) => sum + Number(p.total || 0), 0);
-    const totalDiscount = (procList || []).reduce((sum: number, p: { discount?: number }) => sum + Number(p.discount || 0), 0);
+    const procList: PlanProcedureItem[] =
+      body.procedures !== undefined
+        ? (body.procedures as PlanProcedureItem[]).map((p) => ({
+            ...p,
+            status: p.status || 'PENDING',
+          }))
+        : (prev.procedures || []);
+
+    // Auto-manage plan status: COMPLETED when every procedure is COMPLETED;
+    // ACTIVE when at least one procedure has progressed.
+    let planStatus = body.status || prev.status;
+    if (procList.length > 0) {
+      const allCompleted = procList.every((p) => p.status === 'COMPLETED');
+      const anyProgressed = procList.some(
+        (p) => p.status === 'COMPLETED' || p.status === 'IN_PROGRESS'
+      );
+      if (allCompleted && !body.status) planStatus = 'COMPLETED';
+      else if (anyProgressed && !body.status && prev.status === 'DRAFT') planStatus = 'ACTIVE';
+    }
+    const totalCost = procList.reduce((sum, p) => sum + Number(p.total || 0), 0);
+    const totalDiscount = procList.reduce((sum, p) => sum + Number(p.discount || 0), 0);
     const grandTotal = totalCost - totalDiscount;
 
     await db
       .update(treatmentPlans)
       .set({
         title: body.title !== undefined ? body.title : prev.title,
-        status: body.status || prev.status,
+        status: planStatus,
         procedures: procList,
         totalCost: String(totalCost),
         totalDiscount: String(totalDiscount),

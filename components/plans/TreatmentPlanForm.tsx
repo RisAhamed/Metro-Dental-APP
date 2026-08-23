@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Trash2, Pencil, Check, X } from 'lucide-react';
 import { ProcedureSearch, type ProcedureOption } from '@/components/procedures/ProcedureSearch';
 import { DentalChart } from '@/components/dental/DentalChart';
+import { AutoTextarea } from '@/components/patients/shared';
 
 interface PlanProcedure {
   procedureId: string;
@@ -17,6 +18,9 @@ interface PlanProcedure {
   isFullMouth: boolean;
   isMultiplyCost: boolean;
   notes: string | null;
+  status?: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED';
+  completedAt?: string | null;
+  completedByName?: string | null;
 }
 
 const PLAN_STATUSES = ['DRAFT', 'ACTIVE', 'COMPLETED'];
@@ -394,12 +398,11 @@ export function TreatmentPlanForm({ patientId, clinicId, planId, initial }: Trea
 
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">Notes</label>
-                  <input
-                    type="text"
-                    className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm"
+                  <AutoTextarea
                     value={proc.notes || ''}
-                    placeholder="Optional notes for this procedure"
-                    onChange={(e) => updateProcedure(idx, { notes: e.target.value || null })}
+                    onChange={(v) => updateProcedure(idx, { notes: v || null })}
+                    minRows={4}
+                    placeholder="Optional notes for this procedure..."
                   />
                 </div>
               </div>
@@ -427,11 +430,11 @@ export function TreatmentPlanForm({ patientId, clinicId, planId, initial }: Trea
 
         <div className="mt-4">
           <label className="block text-sm font-medium text-gray-700 mb-1">Plan Notes</label>
-          <textarea
-            rows={3}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          <AutoTextarea
             value={notes}
-            onChange={(e) => setNotes(e.target.value)}
+            onChange={setNotes}
+            minRows={5}
+            placeholder="Global notes for this treatment plan..."
           />
         </div>
       </section>

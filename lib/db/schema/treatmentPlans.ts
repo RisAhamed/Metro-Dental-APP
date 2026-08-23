@@ -20,6 +20,9 @@ export const treatmentPlans = table('treatment_plans', {
     isFullMouth: boolean;
     isMultiplyCost: boolean;
     notes: string | null;
+    status?: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED'; // defaults to PENDING
+    completedAt?: string | null; // ISO date when marked COMPLETED
+    completedByName?: string | null; // doctor/staff who completed it
   }>>().default([]),
   totalCost: numeric('total_cost', { precision: 10, scale: 2 }).default('0'),
   totalDiscount: numeric('total_discount', { precision: 10, scale: 2 }).default('0'),
