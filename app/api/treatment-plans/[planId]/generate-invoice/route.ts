@@ -3,7 +3,9 @@ import { auth } from '@clerk/nextjs/server';
 import { db } from '@/lib/db';
 import { treatmentPlans } from '@/lib/db/schema/treatmentPlans';
 import { patients } from '@/lib/db/schema/patients';
+import { invoices } from '@/lib/db/schema/invoices';
 import { canManageClinical } from '@/lib/auth/claims';
+import { nextId } from '@/lib/utils/ids';
 import { eq } from 'drizzle-orm';
 
 export async function POST(
@@ -44,19 +46,62 @@ export async function POST(
       if (pRows.length > 0) patientName = pRows[0].name;
     }
 
-    // Compute invoice totals from procedures
-    const procedures = (plan.procedures as Array<{ procedureName: string; qty: number; unitCost: number; discount: number; total: number }> | null) || [];
-    const totalCost = procedures.reduce((sum, p) => sum + Number(p.qty * p.unitCost || 0), 0);
-    const totalDiscount = procedures.reduce((sum, p) => sum + Number(p.discount || 0), 0);
-    const grandTotal = totalCost - totalDiscount;
+    // Compute invoice totals from selected procedures (or all if none specified)
+    const allProcedures = (plan.procedures as Array<{
+      procedureId: string;
+      procedureName: string;
+      qty: number;
+      unitCost: number;
+      discount: number;
+      total: number;
+      toothNumbers?: number[] | null;
+      notes?: string | null;
+    }> | null) || [];
 
-    // Generate a pseudo invoice number (in-memory, not persisted)
-    const invoiceId = `INV-${planId.slice(-5).toUpperCase()}-${Date.now().toString().slice(-4)}`;
+    const selectedIndices: number[] | undefined = body.selectedIndices;
+    const procedures =
+      Array.isArray(selectedIndices) && selectedIndices.length > 0
+        ? selectedIndices
+            .filter((idx) => idx >= 0 && idx < allProcedures.length)
+            .map((idx) => allProcedures[idx])
+        : allProcedures;
+
+    if (procedures.length === 0) {
+      return NextResponse.json({ error: 'No procedures selected' }, { status: 400 });
+    }
+
+    const subtotal = procedures.reduce((sum, p) => sum + Number(p.qty * p.unitCost || 0), 0);
+    const totalDiscount = procedures.reduce((sum, p) => sum + Number(p.discount || 0), 0);
+    const grandTotal = subtotal - totalDiscount;
+
+    const invoiceId = await nextId('invoices', 'INV-', 5);
     const invoiceNumber = invoiceId;
 
-    // In a full implementation, you would insert into an `invoices` table here:
-    // await db.insert(invoices).values({ invoiceId, planId, patientId: targetPatientId, clinicId: plan.clinicId, ... })
-    // For now, return the derived invoice data
+    await db.insert(invoices).values({
+      invoiceId,
+      invoiceNumber,
+      patientId: targetPatientId,
+      patientName,
+      clinicId: plan.clinicId,
+      planId: plan.planId,
+      visitId: null,
+      procedures: procedures.map((p) => ({
+        procedureId: p.procedureId,
+        procedureName: p.procedureName,
+        qty: p.qty,
+        unitCost: p.unitCost,
+        discount: p.discount,
+        total: p.total,
+        toothNumbers: p.toothNumbers || null,
+        notes: p.notes || null,
+      })),
+      subtotal: String(subtotal),
+      totalDiscount: String(totalDiscount),
+      grandTotal: String(grandTotal),
+      amountPaid: '0',
+      paymentStatus: 'UNPAID',
+      createdBy: userId,
+    });
 
     return NextResponse.json({
       success: true,
@@ -67,10 +112,10 @@ export async function POST(
       planId: plan.planId,
       planTitle: plan.title,
       procedures,
-      totalCost,
+      subtotal,
       totalDiscount,
       grandTotal,
-      status: 'UNPAID',
+      paymentStatus: 'UNPAID',
       createdAt: new Date().toISOString(),
       message: 'Invoice generated successfully',
     });

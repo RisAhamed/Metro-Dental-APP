@@ -134,6 +134,13 @@
       "when": 1787586289078,
       "tag": "0018_happy_nuke",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1787590519513,
+      "tag": "0019_handy_sandman",
+      "breakpoints": true
     }
   ]
 }

@@ -55,6 +55,8 @@ export default function TreatmentPlanDetailPage() {
   const [notFound, setNotFound] = useState(false);
   const [updatingIdx, setUpdatingIdx] = useState<number | null>(null);
   const [userName, setUserName] = useState('');
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [generatingInvoice, setGeneratingInvoice] = useState(false);
 
   const patientId = Array.isArray(params.patientId) ? params.patientId[0] : params.patientId || '';
   const planId = Array.isArray(params.planId) ? params.planId[0] : params.planId || '';
@@ -153,6 +155,54 @@ export default function TreatmentPlanDetailPage() {
 
   const completedCount = plan.procedures.filter((p) => p.status === 'COMPLETED').length;
 
+  const allSelected = plan.procedures.length > 0 && selected.size === plan.procedures.length;
+  const selectedCountText = `${selected.size} of ${plan.procedures.length} selected`;
+
+  const toggleSelect = (idx: number) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(idx)) next.delete(idx);
+      else next.add(idx);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (allSelected) setSelected(new Set());
+    else setSelected(new Set(plan.procedures.map((_, i) => i)));
+  };
+
+  const handleGenerateInvoiceSelected = async () => {
+    if (selected.size === 0) {
+      alert('Select at least one procedure to generate an invoice.');
+      return;
+    }
+    setGeneratingInvoice(true);
+    try {
+      const selectedIndices = Array.from(selected);
+      const res = await fetch(`/api/treatment-plans/${planId}/generate-invoice`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ patientId, selectedIndices }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        // Navigate to invoice detail or show success
+        if (data.invoiceId) {
+          router.push(`/invoices/${data.invoiceId}`);
+        } else {
+          alert('Invoice generated: ' + (data.invoiceNumber || 'Success'));
+        }
+      } else {
+        alert(data.error || 'Failed to generate invoice');
+      }
+    } catch {
+      alert('Failed to generate invoice');
+    } finally {
+      setGeneratingInvoice(false);
+    }
+  };
+
   return (
     <div className="max-w-5xl mx-auto space-y-6 print:max-w-none print:space-y-4">
       {/* Print header - visible only on print */}
@@ -228,11 +278,43 @@ export default function TreatmentPlanDetailPage() {
 
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-1">Procedures</h2>
-          <p className="text-xs text-gray-400">
-            Mark each procedure as In Progress or Completed as treatment advances. Completed
-            procedures appear in the patient&apos;s Completed Procedures section.
-          </p>
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900 mb-1">Procedures</h2>
+              <p className="text-xs text-gray-400">
+                Mark each procedure as In Progress or Completed as treatment advances. Completed
+                procedures appear in the patient&apos;s Completed Procedures section.
+              </p>
+            </div>
+            {plan.procedures.length > 0 && (
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  onClick={handleGenerateInvoiceSelected}
+                  disabled={selected.size === 0 || generatingInvoice}
+                  className="px-4 py-2 bg-green-600 text-white rounded-md text-sm hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {generatingInvoice ? 'Generating...' : `Generate Invoice for Selected`}
+                </button>
+                <button
+                  onClick={() => window.print()}
+                  className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-md text-sm hover:bg-gray-50"
+                >
+                  Print All
+                </button>
+              </div>
+            )}
+          </div>
+          {plan.procedures.length > 0 && (
+            <label className="mt-4 flex items-center gap-2 text-sm font-medium text-gray-700 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={allSelected}
+                onChange={toggleSelectAll}
+                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              Select All <span className="font-normal text-gray-500">({selectedCountText})</span>
+            </label>
+          )}
         </div>
         {plan.procedures.length === 0 ? (
           <p className="px-6 pb-6 text-sm text-gray-500">No procedures in this plan.</p>
@@ -240,6 +322,15 @@ export default function TreatmentPlanDetailPage() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
+                <th className="px-4 py-3 text-left">
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    onChange={toggleSelectAll}
+                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    title="Select all"
+                  />
+                </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Procedure</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">QTY</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Unit Cost</th>
@@ -251,7 +342,15 @@ export default function TreatmentPlanDetailPage() {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {plan.procedures.map((proc, idx) => (
-                <tr key={`${proc.procedureId}-${idx}`} className={proc.status === 'COMPLETED' ? 'bg-green-50/40' : ''}>
+                <tr key={`${proc.procedureId}-${idx}`} className={`${proc.status === 'COMPLETED' ? 'bg-green-50/40' : ''} hover:bg-gray-50`}>
+                  <td className="px-4 py-3">
+                    <input
+                      type="checkbox"
+                      checked={selected.has(idx)}
+                      onChange={() => toggleSelect(idx)}
+                      className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                    />
+                  </td>
                   <td className="px-6 py-3">
                     <p className="text-sm font-medium text-gray-900 flex items-center gap-1.5">
                       {proc.status === 'COMPLETED' && (

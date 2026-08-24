@@ -31,10 +31,10 @@ import { PatientTimeline, type TimelineEntry } from '@/components/patients/Patie
 import { PatientFiles } from '@/components/patients/PatientFiles';
 import { PatientPrescriptions } from '@/components/patients/PatientPrescriptions';
 import {
-  PatientInvoices,
   PatientPaymentsSection,
   PatientLedger,
 } from '@/components/patients/PatientInvoices';
+import { PatientRealInvoices } from '@/components/patients/PatientRealInvoices';
 import { PatientProfileEdit, type EditablePatient } from '@/components/patients/PatientProfileEdit';
 import { VisitEditModal, type EditableVisit } from '@/components/patients/VisitEditModal';
 import { AppointmentModal } from '@/components/calendar/AppointmentModal';
@@ -744,7 +744,7 @@ export default function PatientProfilePage() {
         );
 
       case 'INVOICES':
-        return <PatientInvoices invoices={derivedInvoices} loading={sectionLoading} />;
+        return <PatientRealInvoices patientId={patientId} />;
 
       case 'PAYMENTS':
         return (

@@ -36,3 +36,4 @@ export * from './treatmentPlans';
 export * from './proceduresCatalog';
 export * from './patientFiles';
 export * from './prescriptions';
+export * from './invoices';
