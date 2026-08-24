@@ -1,6 +1,6 @@
 'use client';
 
-import { Activity } from 'lucide-react';
+import { Activity, Pencil } from 'lucide-react';
 import { EmptyState, formatDateDDMMM } from './shared';
 import type { ClinicalNoteVisit } from './PatientClinicalNotes';
 
@@ -25,9 +25,10 @@ function hasVitals(v: ClinicalNoteVisit): boolean {
 interface VitalSignsDisplayProps {
   visits: ClinicalNoteVisit[];
   loading: boolean;
+  onEdit?: (visit: ClinicalNoteVisit) => void;
 }
 
-export function VitalSignsDisplay({ visits, loading }: VitalSignsDisplayProps) {
+export function VitalSignsDisplay({ visits, loading, onEdit }: VitalSignsDisplayProps) {
   const withVitals = visits
     .filter(hasVitals)
     .sort(
@@ -61,9 +62,20 @@ export function VitalSignsDisplay({ visits, loading }: VitalSignsDisplayProps) {
                   <p className="text-sm font-semibold text-gray-800">
                     {formatDateDDMMM(visit.visitDate)}
                   </p>
-                  <p className="text-xs text-gray-400">
-                    {doctors.length > 0 ? `Dr. ${doctors.join(' & ')}` : ''}
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs text-gray-400">
+                      {doctors.length > 0 ? `Dr. ${doctors.join(' & ')}` : ''}
+                    </p>
+                    {onEdit && (
+                      <button
+                        onClick={() => onEdit(visit)}
+                        title="Edit vital signs"
+                        className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">

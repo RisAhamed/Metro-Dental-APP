@@ -10,17 +10,17 @@ type StatTab = 'ALL' | 'ONLINE' | 'OFFLINE';
 
 const STATUS_OPTIONS = ['CONFIRMED', 'IN_PROGRESS', 'COMPLETED', 'NO_SHOW'] as const;
 
-function statusDot(status: string): { color: string; label: string } {
+function statusDot(status: string): { color: string; label: string; chip: string } {
   switch (status) {
     case 'SCHEDULED':
     case 'CONFIRMED':
-      return { color: 'bg-green-500', label: 'Waiting' };
+      return { color: 'bg-green-500', label: 'Waiting', chip: 'bg-green-50 text-green-700 border border-green-200' };
     case 'IN_PROGRESS':
-      return { color: 'bg-yellow-500', label: 'Engaged' };
+      return { color: 'bg-yellow-500', label: 'Engaged', chip: 'bg-yellow-50 text-yellow-700 border border-yellow-200' };
     case 'COMPLETED':
-      return { color: 'bg-emerald-700', label: 'Done' };
+      return { color: 'bg-emerald-700', label: 'Done', chip: 'bg-emerald-50 text-emerald-700 border border-emerald-200' };
     default:
-      return { color: 'bg-gray-400', label: status };
+      return { color: 'bg-gray-400', label: status, chip: 'bg-gray-100 text-gray-600 border border-gray-200' };
   }
 }
 
@@ -169,6 +169,55 @@ export function SidebarStats({
                       {appt.categoryName || 'Appointment'}
                     </p>
                     <p className="text-xs text-gray-400 truncate">Dr. {appt.doctorName}</p>
+
+                    {/* Status badge + quick actions */}
+                    <div className="flex items-center gap-1.5 mt-1.5">
+                      <span
+                        className={`px-2 py-0.5 text-[10px] rounded-full font-semibold ${dot.chip}`}
+                      >
+                        {dot.label}
+                      </span>
+                      <div className="ml-auto flex items-center gap-1">
+                        {(appt.status === 'SCHEDULED' || appt.status === 'CONFIRMED') && (
+                          <>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onStatusChange(appt.appointmentId, 'IN_PROGRESS');
+                              }}
+                              title="Patient is with the doctor"
+                              className="px-2 py-0.5 text-[10px] rounded border border-yellow-300 text-yellow-700 hover:bg-yellow-50 transition-colors"
+                            >
+                              Check In
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setStatusMenuFor(
+                                  statusMenuFor === appt.appointmentId ? null : appt.appointmentId
+                                );
+                              }}
+                              title="More status options"
+                              className="px-2 py-0.5 text-[10px] rounded border border-red-200 text-red-600 hover:bg-red-50 transition-colors"
+                            >
+                              No Show
+                            </button>
+                          </>
+                        )}
+                        {appt.status === 'IN_PROGRESS' && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onStatusChange(appt.appointmentId, 'COMPLETED');
+                            }}
+                            title="Appointment finished"
+                            className="px-2 py-0.5 text-[10px] rounded border border-green-300 text-green-700 hover:bg-green-50 transition-colors"
+                          >
+                            Check Out
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
 

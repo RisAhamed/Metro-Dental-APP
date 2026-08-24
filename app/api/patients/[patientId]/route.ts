@@ -148,6 +148,37 @@ export async function PATCH(
       }
       updateFields.familyMembers = body.familyMembers;
     }
+    if (body.pastDiseases !== undefined) {
+      if (!Array.isArray(body.pastDiseases)) {
+        return NextResponse.json({ error: 'pastDiseases must be an array' }, { status: 400 });
+      }
+      updateFields.pastDiseases = body.pastDiseases.map(String);
+    }
+    if (body.allergies !== undefined) {
+      if (!Array.isArray(body.allergies)) {
+        return NextResponse.json({ error: 'allergies must be an array' }, { status: 400 });
+      }
+      updateFields.allergies = body.allergies.map(String);
+    }
+    if (body.previousMedicineIntake !== undefined)
+      updateFields.previousMedicineIntake =
+        String(body.previousMedicineIntake).trim() || null;
+    if (body.baselineVitals !== undefined) {
+      const bv = body.baselineVitals;
+      updateFields.baselineVitals =
+        bv && typeof bv === 'object'
+          ? {
+              heightCm: bv.heightCm ? Number(bv.heightCm) : null,
+              weightKg: bv.weightKg ? Number(bv.weightKg) : null,
+              bloodPressure: bv.bloodPressure ? String(bv.bloodPressure).trim() : null,
+              bloodSugar: bv.bloodSugar ? Number(bv.bloodSugar) : null,
+              pulseRate: bv.pulseRate ? Number(bv.pulseRate) : null,
+              spo2: bv.spo2 ? Number(bv.spo2) : null,
+            }
+          : null;
+    }
+    if (body.generalNotes !== undefined)
+      updateFields.generalNotes = String(body.generalNotes).trim() || null;
 
     await db.update(patients).set(updateFields).where(eq(patients.patientId, patientId));
 

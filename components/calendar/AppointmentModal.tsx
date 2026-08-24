@@ -100,6 +100,19 @@ export function AppointmentModal({
   const allDoctors = doctors.length > 0 ? doctors : localDoctors;
   const [status, setStatus] = useState(appointment?.status || 'SCHEDULED');
 
+  // New-patient toggle (only for fresh bookings, not edits)
+  const [patientMode, setPatientMode] = useState<'EXISTING' | 'NEW'>('EXISTING');
+  const [newPatient, setNewPatient] = useState({
+    name: '',
+    primaryPhone: '',
+    gender: 'MALE',
+    age: '',
+    dateOfBirth: '',
+    email: '',
+    addressLine: '',
+  });
+  const [creatingPatient, setCreatingPatient] = useState(false);
+
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
@@ -166,7 +179,15 @@ export function AppointmentModal({
     e.preventDefault();
     setLoading(true);
 
-    if (!form.patientId || !form.doctorId || !form.appointmentDate) {
+    if (patientMode === 'NEW' && !appointment) {
+      if (!newPatient.name.trim() || !newPatient.primaryPhone.trim()) {
+        alert('Please enter the new patient\'s name and phone number');
+        setLoading(false);
+        return;
+      }
+    }
+
+    if (!form.doctorId || !form.appointmentDate || (patientMode === 'EXISTING' && !form.patientId)) {
       alert('Please fill in all required fields');
       setLoading(false);
       return;
@@ -176,6 +197,56 @@ export function AppointmentModal({
     const selectedDoctor = allDoctors.find((d) => d.id === form.doctorId);
 
     try {
+      // Create the new patient on the fly, then book their appointment
+      if (patientMode === 'NEW' && !appointment) {
+        setCreatingPatient(true);
+        const idRes = await fetch('/api/patients/generate-id');
+        const idData = await idRes.json();
+        if (!idRes.ok) throw new Error(idData.error || 'Failed to generate patient ID');
+
+        const createRes = await fetch('/api/patients', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            patientId: idData.patientId,
+            name: newPatient.name.trim(),
+            gender: newPatient.gender,
+            primaryPhone: newPatient.primaryPhone.trim(),
+            age: newPatient.age ? Number(newPatient.age) : null,
+            dateOfBirth: newPatient.dateOfBirth || null,
+            email: newPatient.email.trim() || null,
+            address: newPatient.addressLine.trim()
+              ? {
+                  street: newPatient.addressLine.trim(),
+                  locality: '',
+                  city: '',
+                  pincode: '',
+                }
+              : null,
+            registeredClinicId: clinicId,
+          }),
+        });
+        const createData = await createRes.json();
+        if (!createRes.ok) {
+          throw new Error(createData.error || 'Failed to create patient');
+        }
+
+        const createdPatient = { patientId: idData.patientId as string, name: newPatient.name.trim() };
+        setSelectedPatient({
+          ...createdPatient,
+          primaryPhone: newPatient.primaryPhone.trim(),
+          email: newPatient.email.trim() || null,
+        });
+        setForm((f) => ({
+          ...f,
+          patientId: createdPatient.patientId,
+          patientName: createdPatient.name,
+          patientPhone: newPatient.primaryPhone,
+          patientEmail: newPatient.email,
+        }));
+        setCreatingPatient(false);
+      }
+
       const payload = {
         ...form,
         appointmentDate: dateTime.toISOString(),
@@ -227,8 +298,11 @@ export function AppointmentModal({
       }
     } catch (error) {
       console.error('Submit error:', error);
-      alert('An error occurred. Please try again.');
+      alert(
+        error instanceof Error ? error.message : 'An error occurred. Please try again.'
+      );
     } finally {
+      setCreatingPatient(false);
       setLoading(false);
     }
   };
@@ -326,68 +400,161 @@ export function AppointmentModal({
                 </div>
               )}
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Patient</label>
-                <div className="mt-1 relative">
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      placeholder="Search by name, ID, or phone..."
-                      value={searchPatient}
-                      onChange={(e) => setSearchPatient(e.target.value)}
-                      className="flex-1 border border-gray-300 rounded-md px-3 py-2"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleSearchPatient}
-                      className="px-4 py-2 bg-gray-100 rounded-md hover:bg-gray-200"
-                    >
-                      <Search className="h-4 w-4" />
-                    </button>
+              {/* Patient mode toggle (only for new bookings) */}
+              {!appointment && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Patient</label>
+                  <div className="mt-1 flex border border-gray-200 rounded-md overflow-hidden w-fit">
+                    {(['EXISTING', 'NEW'] as const).map((mode) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        onClick={() => setPatientMode(mode)}
+                        className={`px-4 py-1.5 text-sm ${
+                          patientMode === mode
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-white text-gray-600 hover:bg-gray-50'
+                        }`}
+                      >
+                        {mode === 'EXISTING' ? 'Existing Patient' : 'New Patient'}
+                      </button>
+                    ))}
                   </div>
-                  {patients.length > 0 && (
-                    <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-40 overflow-y-auto">
-                      {patients.map((p) => (
-                        <button
-                          key={p.patientId}
-                          type="button"
-                          onClick={() => handleSelectPatient(p)}
-                          className="w-full text-left px-4 py-2 hover:bg-gray-100 text-sm"
+
+                  {patientMode === 'NEW' ? (
+                    <div className="mt-2 border border-blue-200 bg-blue-50/40 rounded-md p-3 space-y-3">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <input
+                          required
+                          placeholder="Full name *"
+                          value={newPatient.name}
+                          onChange={(e) => setNewPatient({ ...newPatient, name: e.target.value })}
+                          className="border border-gray-300 rounded-md px-3 py-2 text-sm"
+                        />
+                        <input
+                          required
+                          placeholder="Phone *"
+                          value={newPatient.primaryPhone}
+                          onChange={(e) =>
+                            setNewPatient({ ...newPatient, primaryPhone: e.target.value })
+                          }
+                          className="border border-gray-300 rounded-md px-3 py-2 text-sm"
+                        />
+                        <select
+                          value={newPatient.gender}
+                          onChange={(e) => setNewPatient({ ...newPatient, gender: e.target.value })}
+                          className="border border-gray-300 rounded-md px-3 py-2 text-sm"
                         >
-                          {p.name} ({p.patientId}) - {p.primaryPhone}
-                        </button>
-                      ))}
+                          <option value="MALE">Male</option>
+                          <option value="FEMALE">Female</option>
+                          <option value="OTHER">Other</option>
+                        </select>
+                        <input
+                          type="number"
+                          min="0"
+                          placeholder="Age"
+                          value={newPatient.age}
+                          onChange={(e) => setNewPatient({ ...newPatient, age: e.target.value })}
+                          className="border border-gray-300 rounded-md px-3 py-2 text-sm"
+                        />
+                        <input
+                          type="date"
+                          title="Date of birth (optional)"
+                          value={newPatient.dateOfBirth}
+                          onChange={(e) =>
+                            setNewPatient({ ...newPatient, dateOfBirth: e.target.value })
+                          }
+                          className="border border-gray-300 rounded-md px-3 py-2 text-sm"
+                        />
+                        <input
+                          type="email"
+                          placeholder="Email (optional)"
+                          value={newPatient.email}
+                          onChange={(e) => setNewPatient({ ...newPatient, email: e.target.value })}
+                          className="border border-gray-300 rounded-md px-3 py-2 text-sm"
+                        />
+                      </div>
+                      <input
+                        placeholder="Address (optional)"
+                        value={newPatient.addressLine}
+                        onChange={(e) =>
+                          setNewPatient({ ...newPatient, addressLine: e.target.value })
+                        }
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                      />
+                      <p className="text-xs text-gray-400">
+                        A patient ID will be generated automatically on save.
+                      </p>
                     </div>
+                  ) : (
+                    <>
+                      <div className="mt-1 relative">
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            placeholder="Search by name, ID, or phone..."
+                            value={searchPatient}
+                            onChange={(e) => setSearchPatient(e.target.value)}
+                            className="flex-1 border border-gray-300 rounded-md px-3 py-2"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleSearchPatient}
+                            className="px-4 py-2 bg-gray-100 rounded-md hover:bg-gray-200"
+                          >
+                            <Search className="h-4 w-4" />
+                          </button>
+                        </div>
+                        {patients.length > 0 && (
+                          <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-40 overflow-y-auto">
+                            {patients.map((p) => (
+                              <button
+                                key={p.patientId}
+                                type="button"
+                                onClick={() => handleSelectPatient(p)}
+                                className="w-full text-left px-4 py-2 hover:bg-gray-100 text-sm"
+                              >
+                                {p.name} ({p.patientId}) - {p.primaryPhone}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      {selectedPatient && (
+                        <div className="mt-2 p-2 bg-blue-50 rounded-md">
+                          <span className="font-medium">{selectedPatient.name}</span>
+                          <span className="text-sm text-gray-500 ml-2">
+                            ({selectedPatient.patientId})
+                          </span>
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
-                {selectedPatient && (
-                  <div className="mt-2 p-2 bg-blue-50 rounded-md">
-                    <span className="font-medium">{selectedPatient.name}</span>
-                    <span className="text-sm text-gray-500 ml-2">({selectedPatient.patientId})</span>
-                  </div>
-                )}
-              </div>
+              )}
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Patient ID</label>
-                  <input
-                    type="text"
-                    value={form.patientId}
-                    readOnly
-                    className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 bg-gray-50"
-                  />
+              {!(patientMode === 'NEW' && !appointment) && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Patient ID</label>
+                    <input
+                      type="text"
+                      value={form.patientId}
+                      readOnly
+                      className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 bg-gray-50"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Mobile No.</label>
+                    <input
+                      type="text"
+                      value={form.patientPhone}
+                      readOnly
+                      className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 bg-gray-50"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Mobile No.</label>
-                  <input
-                    type="text"
-                    value={form.patientPhone}
-                    readOnly
-                    className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 bg-gray-50"
-                  />
-                </div>
-              </div>
+              )}
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -533,7 +700,13 @@ export function AppointmentModal({
                   disabled={loading}
                   className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
                 >
-                  {loading ? 'Saving...' : appointment ? 'Update Appointment' : 'Save Appointment'}
+                  {loading
+                    ? creatingPatient
+                      ? 'Creating patient...'
+                      : 'Saving...'
+                    : appointment
+                    ? 'Update Appointment'
+                    : 'Save Appointment'}
                 </button>
               </div>
             </form>

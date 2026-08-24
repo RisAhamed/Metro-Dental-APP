@@ -36,6 +36,7 @@ import {
   PatientLedger,
 } from '@/components/patients/PatientInvoices';
 import { PatientProfileEdit, type EditablePatient } from '@/components/patients/PatientProfileEdit';
+import { VisitEditModal, type EditableVisit } from '@/components/patients/VisitEditModal';
 import { AppointmentModal } from '@/components/calendar/AppointmentModal';
 
 interface Patient {
@@ -233,6 +234,7 @@ export default function PatientProfilePage() {
   const [sectionLoading, setSectionLoading] = useState(false);
   const [showAppointmentModal, setShowAppointmentModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [editingVisit, setEditingVisit] = useState<EditableVisit | null>(null);
 
   const patientId = Array.isArray(params.patientId)
     ? params.patientId[0]
@@ -588,10 +590,22 @@ export default function PatientProfilePage() {
         );
 
       case 'VITAL_SIGNS':
-        return <VitalSignsDisplay visits={visits} loading={sectionLoading} />;
+        return (
+          <VitalSignsDisplay
+            visits={visits}
+            loading={sectionLoading}
+            onEdit={canFullEdit ? (v) => setEditingVisit(v) : undefined}
+          />
+        );
 
       case 'CLINICAL_NOTES':
-        return <PatientClinicalNotes visits={visits} loading={sectionLoading} />;
+        return (
+          <PatientClinicalNotes
+            visits={visits}
+            loading={sectionLoading}
+            onEdit={canFullEdit ? (v) => setEditingVisit(v) : undefined}
+          />
+        );
 
       case 'COMPLETED_PROCEDURES':
         return (
@@ -600,10 +614,31 @@ export default function PatientProfilePage() {
             loading={sectionLoading}
           />
         );      case 'FILES':
-        return <PatientFiles files={allFiles} loading={sectionLoading} />;
+        return (
+          <PatientFiles
+            patientId={patientId}
+            clinicId={clinicId}
+            visits={visits.map((v) => ({
+              visitId: v.visitId,
+              visitDate: v.visitDate,
+              label: `${new Date(v.visitDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })} — ${v.visitType?.replace(/_/g, ' ')}`,
+            }))}
+            legacyFiles={allFiles}
+            loading={sectionLoading}
+            canUpload={canBillingEdit}
+            canDelete={canFullEdit}
+          />
+        );
 
       case 'PRESCRIPTIONS':
-        return <PatientPrescriptions prescriptions={[]} loading={false} />;
+        return (
+          <PatientPrescriptions
+            patientId={patientId}
+            clinicId={clinicId}
+            patientName={patient.name}
+            canEdit={canFullEdit}
+          />
+        );
 
       case 'TIMELINE':
         return <PatientTimeline entries={timelineEntries} loading={sectionLoading} />;
@@ -855,6 +890,33 @@ export default function PatientProfilePage() {
           {renderSection()}
         </div>
       </div>
+
+      {/* Visit Edit Modal (vitals / clinical notes) */}
+      {editingVisit && (
+        <VisitEditModal
+          visit={editingVisit}
+          onClose={() => setEditingVisit(null)}
+          onSaved={(updated) => {
+            const u = updated as Record<string, unknown>;
+            setVisits((prev) =>
+              prev.map((v) =>
+                v.visitId === (u.visitId as string)
+                  ? {
+                      ...v,
+                      chiefComplaint: (u.chiefComplaint as string | null) ?? null,
+                      diagnosis: (u.diagnosis as string | null) ?? null,
+                      treatmentGiven: (u.treatmentGiven as string | null) ?? null,
+                      additionalNotes: (u.additionalNotes as string | null) ?? null,
+                      injectionGiven: Boolean(u.injectionGiven),
+                      vitalSigns: (u.vitalSigns as VisitFull['vitalSigns']) ?? null,
+                    }
+                  : v
+              )
+            );
+            setEditingVisit(null);
+          }}
+        />
+      )}
 
       {/* Edit Patient Modal */}
       {showEditModal && (

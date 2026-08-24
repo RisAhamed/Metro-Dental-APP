@@ -1,6 +1,6 @@
 'use client';
 
-import { Activity, FileText } from 'lucide-react';
+import { Activity, FileText, Pencil } from 'lucide-react';
 import { EmptyState, formatDateDDMMM } from './shared';
 
 export interface VisitVitalSigns {
@@ -19,6 +19,7 @@ export interface ClinicalNoteVisit {
   diagnosis: string | null;
   treatmentGiven: string | null;
   additionalNotes: string | null;
+  injectionGiven?: boolean | null;
   vitalSigns: VisitVitalSigns | null;
   doctorsInvolved: Array<{ doctorId: string; doctorName: string; role: string }> | null;
 }
@@ -35,12 +36,14 @@ interface PatientClinicalNotesProps {
   visits: ClinicalNoteVisit[];
   loading: boolean;
   mode?: 'NOTES' | 'VITALS';
+  onEdit?: (visit: ClinicalNoteVisit) => void;
 }
 
 export function PatientClinicalNotes({
   visits,
   loading,
   mode = 'NOTES',
+  onEdit,
 }: PatientClinicalNotesProps) {
   const isVitals = mode === 'VITALS';
   const notes = visits.filter((v) =>
@@ -96,7 +99,18 @@ export function PatientClinicalNotes({
                 key={v.visitId}
                 className="border border-gray-100 rounded-lg p-4 hover:border-blue-200 transition-colors"
               >
-                <p className="text-xs text-gray-400">{formatDateDDMMM(v.visitDate)}</p>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-gray-400">{formatDateDDMMM(v.visitDate)}</p>
+                  {onEdit && (
+                    <button
+                      onClick={() => onEdit(v)}
+                      title="Edit clinical notes"
+                      className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
 
                 <dl className="mt-2 space-y-1.5 text-sm">
                   {v.chiefComplaint && (

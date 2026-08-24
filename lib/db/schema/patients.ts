@@ -41,6 +41,19 @@ export const patients = table('patients', {
   referredByName: text('referred_by_name'),
   medicalHistory: text('medical_history').array().default([]), // array of condition names
   otherHistory: text('other_history'),
+  // Enhanced medical profile
+  pastDiseases: text('past_diseases').array().default([]), // e.g. Diabetes, Hypertension
+  allergies: text('allergies').array().default([]),
+  previousMedicineIntake: text('previous_medicine_intake'),
+  baselineVitals: jsonb('baseline_vitals').$type<{
+    heightCm?: number | null;
+    weightKg?: number | null;
+    bloodPressure?: string | null;
+    bloodSugar?: number | null;
+    pulseRate?: number | null;
+    spo2?: number | null;
+  }>(),
+  generalNotes: text('general_notes'),
   groups: text('groups').array().default([]), // array of group ids
   familyMembers: jsonb('family_members').$type<
     Array<{

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Plus } from 'lucide-react';
+import { X, Plus, ChevronDown, ChevronRight } from 'lucide-react';
 import { AutoTextarea } from './shared';
 
 export interface EditablePatient {
@@ -21,10 +21,24 @@ export interface EditablePatient {
   otherHistory: string | null;
   groups: string[];
   languagePreference: string | null;
+  pastDiseases?: string[] | null;
+  allergies?: string[] | null;
+  previousMedicineIntake?: string | null;
+  baselineVitals?: {
+    heightCm?: number | null;
+    weightKg?: number | null;
+    bloodPressure?: string | null;
+    bloodSugar?: number | null;
+    pulseRate?: number | null;
+    spo2?: number | null;
+  } | null;
+  generalNotes?: string | null;
 }
 
 const GENDERS = ['MALE', 'FEMALE', 'OTHER'];
 const BLOOD_GROUPS = ['O+', 'O-', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'B1+'];
+const COMMON_DISEASES = ['Diabetes', 'Hypertension', 'Asthma', 'Heart Disease', 'Thyroid', 'Epilepsy', 'Tuberculosis', 'Hepatitis'];
+const COMMON_ALLERGIES = ['Penicillin', 'Aspirin', 'Ibuprofen', 'Latex', 'Sulfa Drugs', 'Local Anesthetic', 'Dust', 'Pollen'];
 
 function toDateInput(value: string | null): string {
   if (!value) return '';
@@ -40,6 +54,117 @@ interface PatientProfileEditProps {
   clinicId: string;
   onClose: () => void;
   onSaved: (updated: Record<string, unknown>) => void;
+}
+
+function CollapsibleSection({
+  title,
+  open,
+  onToggle,
+  children,
+}: {
+  title: string;
+  open: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="border border-gray-100 rounded-lg overflow-hidden">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full flex items-center justify-between px-4 py-2.5 bg-gray-50/60 hover:bg-gray-50 transition-colors"
+      >
+        <span className="text-sm font-semibold text-gray-800">{title}</span>
+        {open ? (
+          <ChevronDown className="h-4 w-4 text-gray-400" />
+        ) : (
+          <ChevronRight className="h-4 w-4 text-gray-400" />
+        )}
+      </button>
+      {open && <div className="px-4 pb-4 pt-3">{children}</div>}
+    </section>
+  );
+}
+
+// Tag editor used for past diseases & allergies
+function TagEditor({
+  label,
+  placeholder,
+  suggestions,
+  tags,
+  input,
+  setInput,
+  onAdd,
+  onRemove,
+}: {
+  label: string;
+  placeholder: string;
+  suggestions: string[];
+  tags: string[];
+  input: string;
+  setInput: (v: string) => void;
+  onAdd: (value: string) => void;
+  onRemove: (name: string) => void;
+}) {
+  const filtered = suggestions.filter(
+    (s) =>
+      input.trim().length > 0 &&
+      s.toLowerCase().includes(input.trim().toLowerCase()) &&
+      !tags.some((t) => t.toLowerCase() === s.toLowerCase())
+  );
+  return (
+    <div>
+      <label className="block text-xs font-medium text-gray-500 mb-1">{label}</label>
+      {tags.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mb-1.5">
+          {tags.map((t) => (
+            <span
+              key={t}
+              className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-50 text-amber-700 text-xs rounded-full"
+            >
+              {t}
+              <button onClick={() => onRemove(t)} className="hover:text-amber-900 font-bold">
+                ×
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+      <div className="flex flex-wrap gap-1.5 mb-1.5">
+        {suggestions
+          .filter((s) => !tags.some((t) => t.toLowerCase() === s.toLowerCase()))
+          .map((s) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => onAdd(s)}
+              className={`px-2.5 py-1 text-xs rounded-full border transition-colors ${
+                tags.includes(s)
+                  ? 'bg-amber-500 border-amber-500 text-white'
+                  : 'bg-white border-gray-300 text-gray-600 hover:border-amber-400'
+              }`}
+            >
+              + {s}
+            </button>
+          ))}
+      </div>
+      <input
+        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        placeholder={placeholder}
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            onAdd(input);
+          }
+        }}
+      />
+      {filtered.length > 0 && (
+        <p className="text-[10px] text-gray-400 mt-1">Suggestions: {filtered.join(', ')}</p>
+      )}
+    </div>
+  );
 }
 
 export function PatientProfileEdit({
@@ -65,8 +190,26 @@ export function PatientProfileEdit({
     city: patient.address?.city || '',
     pincode: patient.address?.pincode || '',
     otherHistory: patient.otherHistory || '',
+    previousMedicineIntake: patient.previousMedicineIntake || '',
+    heightCm: patient.baselineVitals?.heightCm?.toString() || '',
+    weightKg: patient.baselineVitals?.weightKg?.toString() || '',
+    bloodPressure: patient.baselineVitals?.bloodPressure || '',
+    bloodSugar: patient.baselineVitals?.bloodSugar?.toString() || '',
+    pulseRate: patient.baselineVitals?.pulseRate?.toString() || '',
+    spo2: patient.baselineVitals?.spo2?.toString() || '',
+    generalNotes: patient.generalNotes || '',
   });
   const [conditions, setConditions] = useState<string[]>(() => [...(patient.medicalHistory || [])]);
+  const [diseases, setDiseases] = useState<string[]>(() => [...(patient.pastDiseases || [])]);
+  const [allergies, setAllergies] = useState<string[]>(() => [...(patient.allergies || [])]);
+  const [tagInput, setTagInput] = useState({ diseases: '', allergies: '' });
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
+    BASIC: true,
+    CONTACT: true,
+    MEDICAL: true,
+    VITALS: false,
+    NOTES: false,
+  });
   const [conditionInput, setConditionInput] = useState('');
   const [conditionSuggestions, setConditionSuggestions] = useState<string[]>([]);
   const [selectedGroups, setSelectedGroups] = useState<Set<string>>(
@@ -124,6 +267,27 @@ export function PatientProfileEdit({
     });
   };
 
+  const toggleSection = (key: string) =>
+    setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
+
+  // Generic tag helpers for diseases / allergies
+  const addTag = (
+    kind: 'diseases' | 'allergies',
+    value: string,
+    current: string[],
+    setter: (v: string[]) => void
+  ) => {
+    const cleaned = value.trim();
+    if (!cleaned) return;
+    if (!current.some((c) => c.toLowerCase() === cleaned.toLowerCase())) {
+      setter([...current, cleaned]);
+    }
+    setTagInput((prev) => ({ ...prev, [kind]: '' }));
+  };
+
+  const removeTag = (list: string[], setter: (v: string[]) => void, name: string) =>
+    setter(list.filter((c) => c !== name));
+
   const handleSave = async () => {
     setSaving(true);
     setError('');
@@ -144,6 +308,18 @@ export function PatientProfileEdit({
           },
           medicalHistory: conditions,
           groups: [...selectedGroups],
+          pastDiseases: diseases,
+          allergies,
+          previousMedicineIntake: form.previousMedicineIntake || null,
+          baselineVitals: {
+            heightCm: form.heightCm === '' ? null : Number(form.heightCm),
+            weightKg: form.weightKg === '' ? null : Number(form.weightKg),
+            bloodPressure: form.bloodPressure.trim() || null,
+            bloodSugar: form.bloodSugar === '' ? null : Number(form.bloodSugar),
+            pulseRate: form.pulseRate === '' ? null : Number(form.pulseRate),
+            spo2: form.spo2 === '' ? null : Number(form.spo2),
+          },
+          generalNotes: form.generalNotes || null,
         }),
       });
       const data = await res.json();
@@ -187,9 +363,8 @@ export function PatientProfileEdit({
             </div>
           )}
 
-          {/* Personal */}
-          <section>
-            <h3 className="text-sm font-semibold text-gray-800 mb-3">Personal Details</h3>
+          {/* Basic Info */}
+          <CollapsibleSection title="Basic Info" open={openSections.BASIC} onToggle={() => toggleSection('BASIC')}>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div className="md:col-span-2">
                 <label className={labelCls}>Full Name *</label>
@@ -236,11 +411,36 @@ export function PatientProfileEdit({
                   onChange={(e) => setField('languagePreference', e.target.value)} />
               </div>
             </div>
-          </section>
+
+            <div className="mt-4 pt-3 border-t border-gray-100">
+              <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                Patient Groups
+              </h4>
+              {allGroups.length === 0 ? (
+                <p className="text-xs text-gray-400">No groups configured for this clinic.</p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {allGroups.map((g) => (
+                    <button
+                      key={g.id}
+                      type="button"
+                      onClick={() => toggleGroup(g.id)}
+                      className={`px-3 py-1.5 text-xs rounded-full border transition-colors ${
+                        selectedGroups.has(g.id)
+                          ? 'bg-blue-600 border-blue-600 text-white'
+                          : 'bg-white border-gray-300 text-gray-600 hover:border-blue-400'
+                      }`}
+                    >
+                      {g.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </CollapsibleSection>
 
           {/* Contact */}
-          <section>
-            <h3 className="text-sm font-semibold text-gray-800 mb-3">Contact Details</h3>
+          <CollapsibleSection title="Contact Details" open={openSections.CONTACT} onToggle={() => toggleSection('CONTACT')}>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <label className={labelCls}>Primary Phone *</label>
@@ -285,11 +485,10 @@ export function PatientProfileEdit({
                   onChange={(e) => setField('pincode', e.target.value)} />
               </div>
             </div>
-          </section>
+          </CollapsibleSection>
 
-          {/* Medical history */}
-          <section>
-            <h3 className="text-sm font-semibold text-gray-800 mb-1">Medical History</h3>
+          {/* Medical History */}
+          <CollapsibleSection title="Medical History" open={openSections.MEDICAL} onToggle={() => toggleSection('MEDICAL')}>
             <p className="text-xs text-gray-400 mb-2">
               Type a condition and press Add. Suggestions appear as you type.
             </p>
@@ -345,6 +544,39 @@ export function PatientProfileEdit({
                 </div>
               )}
             </div>
+
+            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <TagEditor
+                label="Past Diseases"
+                placeholder="Add disease (e.g. Arthritis)"
+                suggestions={COMMON_DISEASES}
+                tags={diseases}
+                input={tagInput.diseases}
+                setInput={(v) => setTagInput((prev) => ({ ...prev, diseases: v }))}
+                onAdd={(v) => addTag('diseases', v, diseases, setDiseases)}
+                onRemove={(name) => removeTag(diseases, setDiseases, name)}
+              />
+              <TagEditor
+                label="Allergies"
+                placeholder="Add allergy"
+                suggestions={COMMON_ALLERGIES}
+                tags={allergies}
+                input={tagInput.allergies}
+                setInput={(v) => setTagInput((prev) => ({ ...prev, allergies: v }))}
+                onAdd={(v) => addTag('allergies', v, allergies, setAllergies)}
+                onRemove={(name) => removeTag(allergies, setAllergies, name)}
+              />
+            </div>
+
+            <div className="mt-4">
+              <label className={labelCls}>Previous Medicine Intake</label>
+              <AutoTextarea
+                value={form.previousMedicineIntake}
+                onChange={(v) => setField('previousMedicineIntake', v)}
+                minRows={3}
+                placeholder="Medicines taken previously (names, dosages, period)..."
+              />
+            </div>
             <div className="mt-3">
               <label className={labelCls}>Other History</label>
               <AutoTextarea
@@ -354,32 +586,53 @@ export function PatientProfileEdit({
                 placeholder="Any other relevant medical history..."
               />
             </div>
-          </section>
+          </CollapsibleSection>
 
-          {/* Groups */}
-          <section>
-            <h3 className="text-sm font-semibold text-gray-800 mb-2">Patient Groups</h3>
-            {allGroups.length === 0 ? (
-              <p className="text-xs text-gray-400">No groups configured for this clinic.</p>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                {allGroups.map((g) => (
-                  <button
-                    key={g.id}
-                    type="button"
-                    onClick={() => toggleGroup(g.id)}
-                    className={`px-3 py-1.5 text-xs rounded-full border transition-colors ${
-                      selectedGroups.has(g.id)
-                        ? 'bg-blue-600 border-blue-600 text-white'
-                        : 'bg-white border-gray-300 text-gray-600 hover:border-blue-400'
-                    }`}
-                  >
-                    {g.name}
-                  </button>
-                ))}
+          {/* Baseline Vital Signs */}
+          <CollapsibleSection title="Baseline Vital Signs" open={openSections.VITALS} onToggle={() => toggleSection('VITALS')}>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div>
+                <label className={labelCls}>Height (cm)</label>
+                <input type="number" min="0" step="0.1" className={inputCls} value={form.heightCm}
+                  onChange={(e) => setField('heightCm', e.target.value)} />
               </div>
-            )}
-          </section>
+              <div>
+                <label className={labelCls}>Weight (kg)</label>
+                <input type="number" min="0" step="0.1" className={inputCls} value={form.weightKg}
+                  onChange={(e) => setField('weightKg', e.target.value)} />
+              </div>
+              <div>
+                <label className={labelCls}>Blood Pressure (mmHg)</label>
+                <input placeholder="120/80" className={inputCls} value={form.bloodPressure}
+                  onChange={(e) => setField('bloodPressure', e.target.value)} />
+              </div>
+              <div>
+                <label className={labelCls}>Blood Sugar (mg/dL)</label>
+                <input type="number" min="0" className={inputCls} value={form.bloodSugar}
+                  onChange={(e) => setField('bloodSugar', e.target.value)} />
+              </div>
+              <div>
+                <label className={labelCls}>Pulse Rate (bpm)</label>
+                <input type="number" min="0" className={inputCls} value={form.pulseRate}
+                  onChange={(e) => setField('pulseRate', e.target.value)} />
+              </div>
+              <div>
+                <label className={labelCls}>SpO₂ (%)</label>
+                <input type="number" min="0" max="100" className={inputCls} value={form.spo2}
+                  onChange={(e) => setField('spo2', e.target.value)} />
+              </div>
+            </div>
+          </CollapsibleSection>
+
+          {/* Additional Notes */}
+          <CollapsibleSection title="Additional Notes" open={openSections.NOTES} onToggle={() => toggleSection('NOTES')}>
+            <AutoTextarea
+              value={form.generalNotes}
+              onChange={(v) => setField('generalNotes', v)}
+              minRows={5}
+              placeholder="General notes about the patient (e.g. nervous about needles, prefers morning appointments)..."
+            />
+          </CollapsibleSection>
         </div>
 
         <div className="flex justify-end gap-3 p-5 border-t border-gray-200 sticky bottom-0 bg-white">

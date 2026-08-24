@@ -238,9 +238,9 @@ export function AppointmentPopover({
                 }`}
               >
                 {s === 'IN_PROGRESS'
-                  ? 'Start'
+                  ? 'Check In'
                   : s === 'COMPLETED'
-                  ? 'Mark Done'
+                  ? 'Check Out'
                   : s.replace('_', ' ')}
               </button>
             ))}
