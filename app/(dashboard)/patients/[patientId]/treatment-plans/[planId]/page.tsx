@@ -147,13 +147,21 @@ export default function TreatmentPlanDetailPage() {
       ? 'bg-green-100 text-green-700'
       : plan.status === 'COMPLETED'
         ? 'bg-blue-100 text-blue-700'
-        : 'bg-yellow-100 text-yellow-700';
+        : plan.status === 'PAUSED'
+          ? 'bg-orange-100 text-orange-700'
+          : 'bg-gray-100 text-gray-600';
 
   const completedCount = plan.procedures.filter((p) => p.status === 'COMPLETED').length;
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
-      <div>
+    <div className="max-w-5xl mx-auto space-y-6 print:max-w-none print:space-y-4">
+      {/* Print header - visible only on print */}
+      <div className="hidden print:block bg-white border-b border-gray-300 p-6">
+        <h1 className="text-2xl font-bold text-gray-900">Metro Dental Clinic</h1>
+        <p className="text-sm text-gray-600">Treatment Plan Estimate / Quotation</p>
+        <p className="text-xs text-gray-500 mt-2">Patient ID: {patientId} • Date: {new Date().toLocaleDateString('en-IN')}</p>
+      </div>
+      <div className="print:hidden">
         <button
           onClick={() => router.push(`/patients/${patientId}/profile?tab=treatment-plans`)}
           className="flex items-center gap-1 text-sm text-blue-600 hover:underline mb-3"
@@ -176,14 +184,45 @@ export default function TreatmentPlanDetailPage() {
               )}
             </div>
           </div>
-          {(plan.status === 'DRAFT' || plan.status === 'ACTIVE') && (
+          <div className="flex items-center gap-2">
             <button
-              onClick={() => router.push(`/patients/${patientId}/treatment-plans/${planId}/edit`)}
-              className="flex items-center gap-1 px-4 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700"
+              onClick={() => window.print()}
+              className="flex items-center gap-1 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-md text-sm hover:bg-gray-50"
             >
-              <Pencil className="h-4 w-4" /> Edit Plan
+              Print
             </button>
-          )}
+            <button
+              onClick={async () => {
+                try {
+                  const res = await fetch(`/api/treatment-plans/${planId}/generate-invoice`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ patientId }),
+                  });
+                  const data = await res.json();
+                  if (res.ok) {
+                    alert('Invoice generated: ' + (data.invoiceId || 'Success'));
+                    // Optionally navigate to invoice page if exists
+                  } else {
+                    alert(data.error || 'Failed to generate invoice');
+                  }
+                } catch {
+                  alert('Failed to generate invoice');
+                }
+              }}
+              className="flex items-center gap-1 px-4 py-2 bg-green-600 text-white rounded-md text-sm hover:bg-green-700"
+            >
+              Generate Invoice
+            </button>
+            {(plan.status === 'DRAFT' || plan.status === 'ACTIVE' || plan.status === 'PAUSED') && (
+              <button
+                onClick={() => router.push(`/patients/${patientId}/treatment-plans/${planId}/edit`)}
+                className="flex items-center gap-1 px-4 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700"
+              >
+                <Pencil className="h-4 w-4" /> Edit Plan
+              </button>
+            )}
+          </div>
         </div>
       </div>
 

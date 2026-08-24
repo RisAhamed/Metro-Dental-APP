@@ -74,6 +74,15 @@ export default async function SettingsPage() {
               Curated groups used to tag patients.
             </p>
           </Link>
+          <Link
+            href="/admin/settings/procedures"
+            className="p-4 border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-colors"
+          >
+            <p className="font-medium text-gray-900">Procedures Catalog</p>
+            <p className="text-xs text-gray-500 mt-1">
+              Manage procedures and default costs for treatment plans.
+            </p>
+          </Link>
         </div>
       </div>
 

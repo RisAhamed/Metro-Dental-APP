@@ -26,6 +26,9 @@ interface Plan {
     isFullMouth: boolean;
     isMultiplyCost: boolean;
     notes: string | null;
+    status?: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED';
+    completedAt?: string | null;
+    completedByName?: string | null;
   }[];
   notes: string | null;
   shareEnabled: boolean;
@@ -84,7 +87,7 @@ export default function EditTreatmentPlanPage() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
+    <div className="max-w-7xl mx-auto space-y-6">
       <div>
         <button
           onClick={() => router.push(`/patients/${patientId}/profile?tab=treatment-plans`)}

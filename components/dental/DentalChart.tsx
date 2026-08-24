@@ -19,6 +19,8 @@ interface DentalChartProps {
   selected: string[];
   onChange: (selected: string[]) => void;
   initialMode?: ToothMode;
+  mode?: ToothMode;
+  onModeChange?: (mode: ToothMode) => void;
   showChildToggle?: boolean;
   showFullMouth?: boolean;
   disabled?: boolean;
@@ -28,11 +30,18 @@ export function DentalChart({
   selected,
   onChange,
   initialMode = 'adult',
+  mode: controlledMode,
+  onModeChange,
   showChildToggle = true,
   showFullMouth = true,
   disabled = false,
 }: DentalChartProps) {
-  const [mode, setMode] = useState<ToothMode>(initialMode);
+  const [internalMode, setInternalMode] = useState<ToothMode>(initialMode);
+  const mode = controlledMode ?? internalMode;
+  const setMode = (next: ToothMode) => {
+    if (controlledMode === undefined) setInternalMode(next);
+    onModeChange?.(next);
+  };
 
   const teeth = mode === 'adult' ? ADULT_TEETH : CHILD_TEETH;
   const allTeeth = [...teeth.upper, ...teeth.lower];

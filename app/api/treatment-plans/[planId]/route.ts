@@ -5,7 +5,7 @@ import { treatmentPlans } from '@/lib/db/schema/treatmentPlans';
 import { canViewClinical, canManageClinical } from '@/lib/auth/claims';
 import { eq } from 'drizzle-orm';
 
-const PLAN_STATUSES = ['DRAFT', 'ACTIVE', 'COMPLETED'];
+const PLAN_STATUSES = ['DRAFT', 'ACTIVE', 'COMPLETED', 'PAUSED'];
 
 type PlanProcedureItem = NonNullable<
   typeof treatmentPlans.$inferSelect['procedures']
@@ -75,6 +75,17 @@ export async function PUT(
             status: p.status || 'PENDING',
           }))
         : (prev.procedures || []);
+
+    // Validate COMPLETED plan requires all procedures COMPLETED
+    if (body.status === 'COMPLETED' && procList.length > 0) {
+      const allCompleted = procList.every((p) => p.status === 'COMPLETED');
+      if (!allCompleted) {
+        return NextResponse.json(
+          { error: 'Cannot mark plan as COMPLETED while procedures are still pending. Mark all procedures as COMPLETED first.' },
+          { status: 400 }
+        );
+      }
+    }
 
     // Auto-manage plan status: COMPLETED when every procedure is COMPLETED;
     // ACTIVE when at least one procedure has progressed.

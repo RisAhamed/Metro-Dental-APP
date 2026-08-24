@@ -1,7 +1,7 @@
 import { cockroachTable as table } from './cockroachTable';
 import { text, timestamp, numeric, jsonb, pgEnum, boolean } from 'drizzle-orm/pg-core';
 
-export const planStatusEnum = pgEnum('plan_status', ['DRAFT', 'ACTIVE', 'COMPLETED']);
+export const planStatusEnum = pgEnum('plan_status', ['DRAFT', 'ACTIVE', 'COMPLETED', 'PAUSED']);
 
 export const treatmentPlans = table('treatment_plans', {
   planId: text('plan_id').primaryKey().notNull(),

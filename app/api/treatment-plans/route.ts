@@ -7,7 +7,7 @@ import { canManageClinical } from '@/lib/auth/claims';
 import { nextId } from '@/lib/utils/ids';
 import { eq, desc, and } from 'drizzle-orm';
 
-const PLAN_STATUSES = ['DRAFT', 'ACTIVE', 'COMPLETED'];
+const PLAN_STATUSES = ['DRAFT', 'ACTIVE', 'COMPLETED', 'PAUSED'];
 
 export async function POST(req: NextRequest) {
   const { sessionClaims, userId } = await auth();

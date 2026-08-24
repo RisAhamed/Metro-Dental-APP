@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Trash2, Pencil, Check, X } from 'lucide-react';
 import { ProcedureSearch, type ProcedureOption } from '@/components/procedures/ProcedureSearch';
+import { ProceduresSidebar } from '@/components/procedures/ProceduresSidebar';
 import { DentalChart } from '@/components/dental/DentalChart';
 import { AutoTextarea } from '@/components/patients/shared';
 
@@ -23,7 +24,7 @@ interface PlanProcedure {
   completedByName?: string | null;
 }
 
-const PLAN_STATUSES = ['DRAFT', 'ACTIVE', 'COMPLETED'];
+const PLAN_STATUSES = ['DRAFT', 'ACTIVE', 'COMPLETED', 'PAUSED'];
 
 interface TreatmentPlanFormProps {
   patientId: string;
@@ -50,8 +51,18 @@ export function TreatmentPlanForm({ patientId, clinicId, planId, initial }: Trea
   const [procedures, setProcedures] = useState<PlanProcedure[]>(() => initial?.procedures || []);
   const [notes, setNotes] = useState(() => initial?.notes || '');
   const [chartRowIndex, setChartRowIndex] = useState<number | null>(null);
+  const [chartMode, setChartMode] = useState<'adult' | 'child'>('adult');
   const [editingNameIdx, setEditingNameIdx] = useState<number | null>(null);
   const [draftName, setDraftName] = useState('');
+
+  const ADULT_ALL_TEETH = [
+    18, 17, 16, 15, 14, 13, 12, 11, 21, 22, 23, 24, 25, 26, 27, 28,
+    48, 47, 46, 45, 44, 43, 42, 41, 31, 32, 33, 34, 35, 36, 37, 38,
+  ];
+  const CHILD_ALL_TEETH = [
+    55, 54, 53, 52, 51, 61, 62, 63, 64, 65,
+    85, 84, 83, 82, 81, 71, 72, 73, 74, 75,
+  ];
 
   const isEdit = Boolean(planId);
 
@@ -119,25 +130,28 @@ export function TreatmentPlanForm({ patientId, clinicId, planId, initial }: Trea
   const setTeethForRow = (teeth: string[]) => {
     if (chartRowIndex === null) return;
     const nums = teeth.map(Number).filter((n) => !Number.isNaN(n));
+    const currentProc = procedures[chartRowIndex];
+    const isFullMouthSelection =
+      chartMode === 'child'
+        ? CHILD_ALL_TEETH.every((t) => nums.includes(t))
+        : ADULT_ALL_TEETH.every((t) => nums.includes(t));
     updateProcedure(chartRowIndex, {
       toothNumbers: nums.length ? nums : null,
-      isFullMouth: false,
+      isFullMouth: isFullMouthSelection,
+      ...(currentProc?.isMultiplyCost ? { qty: nums.length > 0 ? nums.length : 1 } : {}),
     });
   };
 
   const toggleFullMouthForRow = (idx: number) => {
     const proc = procedures[idx];
     if (!proc) return;
-    const allTeeth = [
-      18, 17, 16, 15, 14, 13, 12, 11, 21, 22, 23, 24, 25, 26, 27, 28,
-      48, 47, 46, 45, 44, 43, 42, 41, 31, 32, 33, 34, 35, 36, 37, 38,
-    ];
+    const allTeeth = chartMode === 'child' ? CHILD_ALL_TEETH : ADULT_ALL_TEETH;
     const next = !proc.isFullMouth;
     updateProcedure(idx, {
       isFullMouth: next,
       toothNumbers: next ? allTeeth : null,
       isMultiplyCost: next ? true : proc.isMultiplyCost,
-      qty: next ? allTeeth.length : proc.qty,
+      qty: next ? allTeeth.length : proc.isMultiplyCost && proc.toothNumbers ? proc.toothNumbers.length : proc.qty,
     });
   };
 
@@ -145,9 +159,10 @@ export function TreatmentPlanForm({ patientId, clinicId, planId, initial }: Trea
     const proc = procedures[idx];
     if (!proc) return;
     const next = !proc.isMultiplyCost;
+    const teethCount = proc.toothNumbers?.length ?? 0;
     updateProcedure(idx, {
       isMultiplyCost: next,
-      qty: next && proc.toothNumbers ? proc.toothNumbers.length : proc.qty,
+      qty: next && teethCount > 0 ? teethCount : proc.qty,
     });
   };
 
@@ -187,49 +202,52 @@ export function TreatmentPlanForm({ patientId, clinicId, planId, initial }: Trea
   };
 
   return (
-    <div className="space-y-6">
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm">{error}</div>
-      )}
+    <div className="flex flex-col lg:flex-row gap-6">
+      <ProceduresSidebar onSelect={addProcedure} />
+      <div className="flex-1 space-y-6 min-w-0">
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm">{error}</div>
+        )}
 
-      <section className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Plan Details</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
-            <input
-              type="text"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              value={title}
-              placeholder="e.g. Full Mouth Rehabilitation"
-              onChange={(e) => setTitle(e.target.value)}
-            />
+        <section className="bg-white rounded-lg shadow p-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Plan Details</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+              <input
+                type="text"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={title}
+                placeholder="e.g. Full Mouth Rehabilitation"
+                onChange={(e) => setTitle(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+              <select
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+              >
+                {PLAN_STATUSES.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-            <select
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              value={status}
-              onChange={(e) => setStatus(e.target.value)}
-            >
-              {PLAN_STATUSES.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
+        </section>
+
+        <section className="bg-white rounded-lg shadow p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-900">Procedures</h2>
+            <span className="text-xs text-gray-500">Tip: Click a procedure in the left sidebar to add it</span>
           </div>
-        </div>
-      </section>
 
-      <section className="bg-white rounded-lg shadow p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-gray-900">Procedures</h2>
-        </div>
-
-        <div className="mb-6">
-          <ProcedureSearch onSelect={addProcedure} placeholder="Search procedure to add to plan..." allowCustom />
-        </div>
+          <div className="mb-6">
+            <ProcedureSearch onSelect={addProcedure} placeholder="Search procedure to add to plan..." allowCustom />
+          </div>
 
         {procedures.length === 0 ? (
           <p className="text-sm text-gray-500">No procedures added yet. Search above to add one.</p>
@@ -290,16 +308,32 @@ export function TreatmentPlanForm({ patientId, clinicId, planId, initial }: Trea
                   </button>
                 </div>
 
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
                   <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-1">QTY</label>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">
+                      QTY {proc.isMultiplyCost && <span className="font-normal text-gray-400">(auto)</span>}
+                    </label>
                     <input
                       type="number"
                       min="1"
-                      className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm"
+                      disabled={proc.isMultiplyCost}
+                      title={proc.isMultiplyCost ? 'QTY is auto-calculated from selected teeth when Multiply Cost is ON' : undefined}
+                      className={`w-full px-2 py-1.5 border rounded-md text-sm ${proc.isMultiplyCost ? 'bg-gray-100 border-gray-200 text-gray-500 cursor-not-allowed' : 'border-gray-300'}`}
                       value={proc.qty}
                       onChange={(e) => updateProcedure(idx, { qty: Math.max(1, Number(e.target.value) || 1) })}
                     />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Procedure Status</label>
+                    <select
+                      value={proc.status || 'PENDING'}
+                      onChange={(e) => updateProcedure(idx, { status: e.target.value as PlanProcedure['status'] })}
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm"
+                    >
+                      <option value="PENDING">PENDING</option>
+                      <option value="IN_PROGRESS">IN_PROGRESS</option>
+                      <option value="COMPLETED">COMPLETED</option>
+                    </select>
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-500 mb-1">Unit Cost (₹)</label>
@@ -380,6 +414,8 @@ export function TreatmentPlanForm({ patientId, clinicId, planId, initial }: Trea
                       <DentalChart
                         selected={selectedTeethForRow(proc)}
                         onChange={setTeethForRow}
+                        mode={chartMode}
+                        onModeChange={setChartMode}
                         showFullMouth={false}
                       />
                     </div>
@@ -455,6 +491,7 @@ export function TreatmentPlanForm({ patientId, clinicId, planId, initial }: Trea
         >
           {loading ? 'Saving...' : 'Save Plan'}
         </button>
+      </div>
       </div>
     </div>
   );
