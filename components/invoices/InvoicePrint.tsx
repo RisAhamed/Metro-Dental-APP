@@ -68,12 +68,15 @@ export const InvoicePrint = forwardRef<HTMLDivElement, InvoicePrintProps>(
         className="bg-white text-gray-900 p-8 max-w-[800px] mx-auto print:p-0 print:shadow-none"
         style={{ fontFamily: 'Inter, system-ui, sans-serif' }}
       >
-        {/* Print styles */}
+        {/* Print styles - isolate invoice */}
         <style>{`
           @media print {
             @page { size: A4; margin: 12mm; }
-            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-            #invoice-print-area { box-shadow: none !important; border: none !important; }
+            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; background: white !important; }
+            body * { visibility: hidden; }
+            #invoice-print-area, #invoice-print-area * { visibility: visible; }
+            #invoice-print-area { position: absolute; left: 0; top: 0; width: 100%; box-shadow: none !important; border: none !important; margin: 0 !important; }
+            .no-print { display: none !important; }
           }
         `}</style>
 

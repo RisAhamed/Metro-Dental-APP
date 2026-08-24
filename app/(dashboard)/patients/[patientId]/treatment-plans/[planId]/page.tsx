@@ -18,6 +18,7 @@ interface PlanProcedure {
   status?: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED';
   completedAt?: string | null;
   completedByName?: string | null;
+  amountPaid?: number;
 }
 
 interface Plan {
@@ -57,6 +58,10 @@ export default function TreatmentPlanDetailPage() {
   const [userName, setUserName] = useState('');
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [generatingInvoice, setGeneratingInvoice] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paymentAmount, setPaymentAmount] = useState('');
+  const [paymentTargets, setPaymentTargets] = useState<Set<number>>(new Set());
+  const [recordingPayment, setRecordingPayment] = useState(false);
 
   const patientId = Array.isArray(params.patientId) ? params.patientId[0] : params.patientId || '';
   const planId = Array.isArray(params.planId) ? params.planId[0] : params.planId || '';
@@ -97,18 +102,15 @@ export default function TreatmentPlanDetailPage() {
     try {
       const procedures = plan.procedures.map((p, i) => {
         if (i !== idx) return p;
-        return {
+        const next: PlanProcedure = {
           ...p,
           status,
-          completedAt:
-            status === 'COMPLETED'
-              ? new Date().toISOString()
-              : null,
-          completedByName:
-            status === 'COMPLETED'
-              ? userName || undefined
-              : null,
+          completedAt: status === 'COMPLETED' ? new Date().toISOString() : null,
+          completedByName: status === 'COMPLETED' ? userName || undefined : null,
+          // Auto-track payment when completed: mark amountPaid = total if not already paid
+          amountPaid: status === 'COMPLETED' ? p.total : status === 'PENDING' ? 0 : p.amountPaid ?? 0,
         };
+        return next;
       });
 
       const res = await fetch(`/api/treatment-plans/${planId}`, {
@@ -154,6 +156,15 @@ export default function TreatmentPlanDetailPage() {
           : 'bg-gray-100 text-gray-600';
 
   const completedCount = plan.procedures.filter((p) => p.status === 'COMPLETED').length;
+  const totalPaid = plan.procedures.reduce((sum, p) => sum + Number(p.amountPaid || 0), 0);
+  const computedGrandTotal = Number(plan.grandTotal || 0);
+  const balanceDue = Math.max(computedGrandTotal - totalPaid, 0);
+  const paymentStatus =
+    totalPaid >= computedGrandTotal && computedGrandTotal > 0
+      ? 'PAID'
+      : totalPaid > 0
+        ? 'PARTIALLY_PAID'
+        : 'UNPAID';
 
   const allSelected = plan.procedures.length > 0 && selected.size === plan.procedures.length;
   const selectedCountText = `${selected.size} of ${plan.procedures.length} selected`;
@@ -375,6 +386,9 @@ export default function TreatmentPlanDetailPage() {
                   <td className="px-6 py-3 text-sm text-red-600">₹{proc.discount.toLocaleString('en-IN')}</td>
                   <td className="px-6 py-3 text-sm font-semibold text-gray-900">
                     ₹{proc.total.toLocaleString('en-IN')}
+                    {Number(proc.amountPaid || 0) > 0 && (
+                      <p className="text-xs font-normal text-green-600">Paid ₹{Number(proc.amountPaid).toLocaleString('en-IN')}</p>
+                    )}
                   </td>
                   <td className="px-6 py-3">
                     {proc.isFullMouth ? (
@@ -443,6 +457,44 @@ export default function TreatmentPlanDetailPage() {
             </p>
           </div>
         </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+          <div className="bg-green-50 border border-green-200 rounded-md p-4">
+            <p className="text-xs text-green-600">Amount Paid</p>
+            <p className="text-xl font-bold text-green-700">₹{totalPaid.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+          </div>
+          <div className="bg-red-50 border border-red-200 rounded-md p-4">
+            <p className="text-xs text-red-600">Balance Due</p>
+            <p className="text-xl font-bold text-red-700">₹{balanceDue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+          </div>
+          <div className="bg-white border border-gray-200 rounded-md p-4 flex flex-col justify-center">
+            <p className="text-xs text-gray-500">Payment Status</p>
+            <span
+              className={`mt-1 inline-block w-fit px-3 py-1 text-sm rounded-full font-semibold ${
+                paymentStatus === 'PAID'
+                  ? 'bg-green-100 text-green-700'
+                  : paymentStatus === 'PARTIALLY_PAID'
+                    ? 'bg-yellow-100 text-yellow-700'
+                    : 'bg-red-100 text-red-700'
+              }`}
+            >
+              {paymentStatus}
+            </span>
+          </div>
+        </div>
+        {balanceDue > 0 && (
+          <div className="mt-4">
+            <button
+              onClick={() => {
+                setPaymentTargets(new Set());
+                setPaymentAmount('');
+                setShowPaymentModal(true);
+              }}
+              className="px-4 py-2 bg-green-600 text-white rounded-md text-sm hover:bg-green-700"
+            >
+              Record Payment
+            </button>
+          </div>
+        )}
 
         {plan.notes && (
           <div className="mt-4">
@@ -451,6 +503,107 @@ export default function TreatmentPlanDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Record Payment Modal */}
+      {showPaymentModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
+            <h3 className="text-lg font-semibold mb-4">Record Payment</h3>
+            <p className="text-sm text-gray-600 mb-3">
+              Balance due: <span className="font-bold text-red-600">₹{balanceDue.toLocaleString('en-IN')}</span>
+            </p>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Amount (₹)</label>
+                <input
+                  type="number"
+                  min="1"
+                  max={balanceDue}
+                  value={paymentAmount}
+                  onChange={(e) => setPaymentAmount(e.target.value)}
+                  placeholder="Enter amount"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2"
+                />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-700 mb-1">Apply to procedures (optional - leave empty to auto-distribute)</p>
+                <div className="space-y-1 max-h-40 overflow-y-auto border border-gray-200 rounded p-2">
+                  {plan.procedures.map((proc, idx) => {
+                    const paid = Number(proc.amountPaid || 0);
+                    const due = Math.max(Number(proc.total || 0) - paid, 0);
+                    if (due <= 0) return null;
+                    return (
+                      <label key={idx} className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={paymentTargets.has(idx)}
+                          onChange={() => {
+                            setPaymentTargets((prev) => {
+                              const next = new Set(prev);
+                              if (next.has(idx)) next.delete(idx);
+                              else next.add(idx);
+                              return next;
+                            });
+                          }}
+                          className="h-4 w-4 rounded border-gray-300 text-blue-600"
+                        />
+                        <span className="flex-1 truncate">{proc.procedureName}</span>
+                        <span className="text-xs text-gray-500">Due ₹{due.toLocaleString('en-IN')}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end gap-2">
+              <button onClick={() => setShowPaymentModal(false)} className="px-4 py-2 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+                Cancel
+              </button>
+              <button
+                disabled={recordingPayment || !paymentAmount}
+                onClick={async () => {
+                  const amount = Number(paymentAmount);
+                  if (!amount || amount <= 0) {
+                    alert('Enter a valid amount');
+                    return;
+                  }
+                  if (amount > balanceDue) {
+                    alert('Amount exceeds balance due');
+                    return;
+                  }
+                  setRecordingPayment(true);
+                  try {
+                    const res = await fetch(`/api/treatment-plans/${planId}/record-payment`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        amount,
+                        procedureIndices: paymentTargets.size > 0 ? Array.from(paymentTargets) : undefined,
+                      }),
+                    });
+                    const data = await res.json();
+                    if (res.ok) {
+                      setPlan(data.plan);
+                      setShowPaymentModal(false);
+                      setPaymentAmount('');
+                      setPaymentTargets(new Set());
+                    } else {
+                      alert(data.error || 'Failed to record payment');
+                    }
+                  } catch {
+                    alert('Failed to record payment');
+                  } finally {
+                    setRecordingPayment(false);
+                  }
+                }}
+                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50"
+              >
+                {recordingPayment ? 'Saving...' : 'Confirm Payment'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -41,6 +41,7 @@ export default function InvoiceDetailPage() {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [updatingPayment, setUpdatingPayment] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -68,19 +69,36 @@ export default function InvoiceDetailPage() {
 
   const handleDownloadPDF = async () => {
     if (!printRef.current || !invoice) return;
+    setDownloading(true);
     try {
       const html2canvas = (await import('html2canvas')).default;
       const { jsPDF } = await import('jspdf');
-      const canvas = await html2canvas(printRef.current, { scale: 2, useCORS: true });
+      const canvas = await html2canvas(printRef.current, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff',
+      });
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      let heightLeft = pdfHeight;
+      let position = 0;
+      pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
+      heightLeft -= pageHeight;
+      while (heightLeft > 0) {
+        position = heightLeft - pdfHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
+        heightLeft -= pageHeight;
+      }
       pdf.save(`${invoice.invoiceNumber}.pdf`);
     } catch (error) {
       console.error('PDF generation error:', error);
       alert('Failed to generate PDF');
+    } finally {
+      setDownloading(false);
     }
   };
 
@@ -116,7 +134,7 @@ export default function InvoiceDetailPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-4">
-      <div className="flex items-center justify-between print:hidden">
+      <div className="flex items-center justify-between print:hidden no-print">
         <button
           onClick={() => router.back()}
           className="flex items-center gap-1 text-sm text-blue-600 hover:underline"
@@ -142,15 +160,16 @@ export default function InvoiceDetailPage() {
           </button>
           <button
             onClick={handleDownloadPDF}
-            className="flex items-center gap-1 px-4 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700"
+            disabled={downloading}
+            className="flex items-center gap-1 px-4 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 disabled:opacity-50"
           >
-            <Download className="h-4 w-4" /> Download PDF
+            <Download className="h-4 w-4" /> {downloading ? 'Generating...' : 'Download PDF'}
           </button>
         </div>
       </div>
 
       {/* Payment status badge - visible on screen */}
-      <div className="bg-white rounded-lg shadow p-4 flex items-center gap-2 print:hidden">
+      <div className="bg-white rounded-lg shadow p-4 flex items-center gap-2 print:hidden no-print">
         <CreditCard className="h-5 w-5 text-blue-500" />
         <span className="text-sm font-medium">Payment Status:</span>
         <span

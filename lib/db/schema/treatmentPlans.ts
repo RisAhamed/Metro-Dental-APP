@@ -23,6 +23,7 @@ export const treatmentPlans = table('treatment_plans', {
     status?: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED'; // defaults to PENDING
     completedAt?: string | null; // ISO date when marked COMPLETED
     completedByName?: string | null; // doctor/staff who completed it
+    amountPaid?: number; // amount paid for this procedure
   }>>().default([]),
   totalCost: numeric('total_cost', { precision: 10, scale: 2 }).default('0'),
   totalDiscount: numeric('total_discount', { precision: 10, scale: 2 }).default('0'),
