@@ -38,6 +38,7 @@ export default function InvoiceDetailPage() {
   const [invoice, setInvoice] = useState<InvoiceData | null>(null);
   const [patient, setPatient] = useState<Record<string, unknown> | null>(null);
   const [clinic, setClinic] = useState<Record<string, unknown> | null>(null);
+  const [doctorName, setDoctorName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [updatingPayment, setUpdatingPayment] = useState(false);
@@ -53,6 +54,7 @@ export default function InvoiceDetailPage() {
           setInvoice(data.invoice);
           setPatient(data.patient);
           setClinic(data.clinic);
+          setDoctorName(data.doctorName || null);
         } else setNotFound(true);
       } catch {
         setNotFound(true);
@@ -198,6 +200,7 @@ export default function InvoiceDetailPage() {
           clinic={
             clinic as unknown as Parameters<typeof InvoicePrint>[0]['clinic']
           }
+          doctorName={doctorName}
         />
       </div>
     </div>

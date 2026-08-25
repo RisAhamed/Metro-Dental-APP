@@ -190,6 +190,12 @@ export const InvoicePrint = forwardRef<HTMLDivElement, InvoicePrintProps>(
               <span className="text-gray-600">Amount Paid:</span>
               <span>₹{Number(invoice.amountPaid).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
             </div>
+            <div className="flex justify-between py-1 text-xs font-semibold">
+              <span className="text-gray-800">Balance Due:</span>
+              <span className="text-red-600">
+                ₹{(Number(invoice.grandTotal) - Number(invoice.amountPaid)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+              </span>
+            </div>
           </div>
         </div>
 

@@ -62,6 +62,8 @@ export default function TreatmentPlanDetailPage() {
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentTargets, setPaymentTargets] = useState<Set<number>>(new Set());
   const [recordingPayment, setRecordingPayment] = useState(false);
+  const [completePromptIdx, setCompletePromptIdx] = useState<number | null>(null);
+  const [completeAmount, setCompleteAmount] = useState('');
 
   const patientId = Array.isArray(params.patientId) ? params.patientId[0] : params.patientId || '';
   const planId = Array.isArray(params.planId) ? params.planId[0] : params.planId || '';
@@ -96,6 +98,59 @@ export default function TreatmentPlanDetailPage() {
     load();
   }, []);
 
+  const handleConfirmComplete = async () => {
+    if (completePromptIdx === null || !plan) return;
+    const idx = completePromptIdx;
+    const amount = Number(completeAmount);
+    if (!amount || amount <= 0) {
+      alert('Enter a valid amount');
+      return;
+    }
+    const procTotal = Number(plan.procedures[idx].total || 0);
+    if (amount > procTotal) {
+      alert(`Amount cannot exceed procedure total ₹${procTotal.toLocaleString('en-IN')}`);
+      return;
+    }
+    setUpdatingIdx(idx);
+    try {
+      // Step 1: mark status COMPLETED
+      const withStatus = plan.procedures.map((p, i) =>
+        i === idx
+          ? {
+              ...p,
+              status: 'COMPLETED' as const,
+              completedAt: new Date().toISOString(),
+              completedByName: userName || undefined,
+            }
+          : p
+      );
+      const statusRes = await fetch(`/api/treatment-plans/${planId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ procedures: withStatus }),
+      });
+      const statusData = await statusRes.json();
+      if (!statusRes.ok) throw new Error(statusData.error || 'Failed to update status');
+
+      // Step 2: record payment for this procedure
+      const payRes = await fetch(`/api/treatment-plans/${planId}/record-payment`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount, procedureIndices: [idx] }),
+      });
+      const payData = await payRes.json();
+      if (!payRes.ok) throw new Error(payData.error || 'Failed to record payment');
+
+      setPlan(payData.plan);
+      setCompletePromptIdx(null);
+      setCompleteAmount('');
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to complete procedure');
+    } finally {
+      setUpdatingIdx(null);
+    }
+  };
+
   const updateProcedureStatus = async (idx: number, status: (typeof PROC_STATUSES)[number]) => {
     if (!plan) return;
     setUpdatingIdx(idx);
@@ -107,7 +162,6 @@ export default function TreatmentPlanDetailPage() {
           status,
           completedAt: status === 'COMPLETED' ? new Date().toISOString() : null,
           completedByName: status === 'COMPLETED' ? userName || undefined : null,
-          // Auto-track payment when completed: mark amountPaid = total if not already paid
           amountPaid: status === 'COMPLETED' ? p.total : status === 'PENDING' ? 0 : p.amountPaid ?? 0,
         };
         return next;
@@ -414,7 +468,16 @@ export default function TreatmentPlanDetailPage() {
                           <button
                             key={s}
                             disabled={updatingIdx === idx}
-                            onClick={() => updateProcedureStatus(idx, s)}
+                            onClick={() => {
+                              if (s === 'COMPLETED' && plan) {
+                                const proc = plan.procedures[idx];
+                                const due = Math.max(Number(proc.total || 0) - Number(proc.amountPaid || 0), 0);
+                                setCompleteAmount(String(due > 0 ? due : proc.total));
+                                setCompletePromptIdx(idx);
+                              } else {
+                                updateProcedureStatus(idx, s);
+                              }
+                            }}
                             title={`Mark as ${s.replace('_', ' ')}`}
                             className={`px-2 py-1 text-[10px] rounded border transition-colors disabled:opacity-50 ${
                               s === 'COMPLETED'
@@ -599,6 +662,46 @@ export default function TreatmentPlanDetailPage() {
                 className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50"
               >
                 {recordingPayment ? 'Saving...' : 'Confirm Payment'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Complete Procedure Payment Prompt */}
+      {completePromptIdx !== null && plan && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
+            <h3 className="text-lg font-semibold">Mark as Completed</h3>
+            <p className="text-sm text-gray-600 mt-1">
+              {plan.procedures[completePromptIdx].procedureName} — Total:{' '}
+              <span className="font-semibold">₹{Number(plan.procedures[completePromptIdx].total).toLocaleString('en-IN')}</span>
+            </p>
+            <p className="text-xs text-gray-500 mt-1">How much was paid for this procedure?</p>
+            <input
+              type="number"
+              min="0"
+              max={plan.procedures[completePromptIdx].total}
+              value={completeAmount}
+              onChange={(e) => setCompleteAmount(e.target.value)}
+              placeholder="Amount paid"
+              className="mt-3 w-full border border-gray-300 rounded-md px-3 py-2"
+              autoFocus
+            />
+            <p className="text-xs text-gray-400 mt-1">Default is full amount. Adjust for partial payment.</p>
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                onClick={() => setCompletePromptIdx(null)}
+                className="px-4 py-2 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmComplete}
+                disabled={updatingIdx === completePromptIdx}
+                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50"
+              >
+                {updatingIdx === completePromptIdx ? 'Saving...' : 'Confirm & Complete'}
               </button>
             </div>
           </div>

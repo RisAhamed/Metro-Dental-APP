@@ -73,6 +73,10 @@ export async function POST(
     const subtotal = procedures.reduce((sum, p) => sum + Number(p.qty * p.unitCost || 0), 0);
     const totalDiscount = procedures.reduce((sum, p) => sum + Number(p.discount || 0), 0);
     const grandTotal = subtotal - totalDiscount;
+    const amountPaid = procedures.reduce((sum, p) => sum + Number((p as { amountPaid?: number }).amountPaid || 0), 0);
+    const balanceDue = Math.max(grandTotal - amountPaid, 0);
+    const paymentStatus: 'UNPAID' | 'PARTIALLY_PAID' | 'PAID' =
+      amountPaid >= grandTotal && grandTotal > 0 ? 'PAID' : amountPaid > 0 ? 'PARTIALLY_PAID' : 'UNPAID';
 
     const invoiceId = await nextId('invoices', 'INV-', 5);
     const invoiceNumber = invoiceId;
@@ -92,14 +96,14 @@ export async function POST(
         unitCost: p.unitCost,
         discount: p.discount,
         total: p.total,
-        toothNumbers: p.toothNumbers || null,
-        notes: p.notes || null,
+        toothNumbers: (p as { toothNumbers?: number[] | null }).toothNumbers || null,
+        notes: (p as { notes?: string | null }).notes || null,
       })),
       subtotal: String(subtotal),
       totalDiscount: String(totalDiscount),
       grandTotal: String(grandTotal),
-      amountPaid: '0',
-      paymentStatus: 'UNPAID',
+      amountPaid: String(amountPaid),
+      paymentStatus,
       createdBy: userId,
     });
 
@@ -115,7 +119,9 @@ export async function POST(
       subtotal,
       totalDiscount,
       grandTotal,
-      paymentStatus: 'UNPAID',
+      amountPaid,
+      balanceDue,
+      paymentStatus,
       createdAt: new Date().toISOString(),
       message: 'Invoice generated successfully',
     });

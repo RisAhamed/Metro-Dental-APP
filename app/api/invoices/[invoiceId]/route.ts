@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { invoices } from '@/lib/db/schema/invoices';
 import { patients } from '@/lib/db/schema/patients';
 import { clinics } from '@/lib/db/schema/clinics';
+import { users } from '@/lib/db/schema/users';
 import { canViewClinical } from '@/lib/auth/claims';
 import { eq } from 'drizzle-orm';
 
@@ -26,16 +27,20 @@ export async function GET(
 
     const invoice = rows[0];
 
-    // Fetch patient and clinic details for print header
-    const [patientRows, clinicRows] = await Promise.all([
+    // Fetch patient, clinic and doctor details for print header
+    const [patientRows, clinicRows, doctorRows] = await Promise.all([
       db.select().from(patients).where(eq(patients.patientId, invoice.patientId)).limit(1),
       db.select().from(clinics).where(eq(clinics.clinicId, invoice.clinicId)).limit(1),
+      db.select({ name: users.name }).from(users).where(eq(users.uid, invoice.createdBy)).limit(1),
     ]);
+
+    const doctorName = doctorRows[0]?.name || null;
 
     return NextResponse.json({
       invoice,
       patient: patientRows[0] || null,
       clinic: clinicRows[0] || null,
+      doctorName,
     });
   } catch (error) {
     console.error('Get Invoice Error:', error);

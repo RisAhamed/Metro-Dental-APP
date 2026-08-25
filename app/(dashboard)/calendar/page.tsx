@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { CalendarWeekView } from '@/components/calendar/CalendarWeekView';
 import { CalendarMonthView } from '@/components/calendar/CalendarMonthView';
+import { CalendarDayView } from '@/components/calendar/CalendarDayView';
 import { SidebarStats } from '@/components/calendar/SidebarStats';
 import type { CalendarAppointment, CalendarStats } from '@/components/calendar/types';
 import { AppointmentPopover } from '@/components/calendar/AppointmentPopover';
@@ -50,7 +51,7 @@ const HOVER_CLOSE_DELAY = 250;
 export default function CalendarPage() {
   const { sessionClaims } = useAuth();
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [view, setView] = useState<'week' | 'month'>('week');
+  const [view, setView] = useState<'day' | 'week' | 'month'>('week');
   const [appointments, setAppointments] = useState<CalendarAppointment[]>([]);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [selectedDoctor, setSelectedDoctor] = useState<string>('all');
@@ -298,6 +299,7 @@ export default function CalendarPage() {
     const today = new Date();
     setCurrentDate(today);
     setSelectedDate(startOfDay(today));
+    setView('day');
   };
 
   const handleMonthDateClick = (day: Date) => {
@@ -307,7 +309,9 @@ export default function CalendarPage() {
   };
 
   const handleNavigate = (direction: 'prev' | 'next') => {
-    if (view === 'week') {
+    if (view === 'day') {
+      setCurrentDate((d) => addDays(d, direction === 'prev' ? -1 : 1));
+    } else if (view === 'week') {
       setCurrentDate((d) => (direction === 'prev' ? subWeeks(d, 1) : addWeeks(d, 1)));
     } else {
       setCurrentDate((d) => (direction === 'prev' ? subMonths(d, 1) : addMonths(d, 1)));
@@ -407,9 +411,11 @@ export default function CalendarPage() {
               <ChevronLeft className="h-5 w-5" />
             </button>
             <h2 className="text-lg font-semibold whitespace-nowrap">
-              {view === 'month'
-                ? format(currentDate, 'MMMM yyyy')
-                : `${format(weekStart, 'MMM d')} - ${format(addDays(weekStart, 6), 'MMM d, yyyy')}`}
+              {view === 'day'
+                ? format(currentDate, 'EEEE, MMM d, yyyy')
+                : view === 'month'
+                  ? format(currentDate, 'MMMM yyyy')
+                  : `${format(weekStart, 'MMM d')} - ${format(addDays(weekStart, 6), 'MMM d, yyyy')}`}
             </h2>
             <button onClick={() => handleNavigate('next')} className="p-2 rounded-md hover:bg-gray-100" aria-label="Next">
               <ChevronRight className="h-5 w-5" />
@@ -423,7 +429,7 @@ export default function CalendarPage() {
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <div className="flex border border-gray-200 rounded-md overflow-hidden">
-              {(['week', 'month'] as const).map((v) => (
+              {(['day', 'week', 'month'] as const).map((v) => (
                 <button
                   key={v}
                   onClick={() => setView(v)}
@@ -456,6 +462,15 @@ export default function CalendarPage() {
           <div className="flex items-center justify-center h-64 text-gray-500">
             Loading appointments...
           </div>
+        ) : view === 'day' ? (
+          <CalendarDayView
+            date={currentDate}
+            appointments={appointments}
+            onSlotClick={handleSlotClick}
+            onAppointmentClick={handleAppointmentClick}
+            onAppointmentMouseEnter={handleHoverOpen}
+            onAppointmentMouseLeave={handleHoverClose}
+          />
         ) : view === 'month' ? (
           <CalendarMonthView
             currentDate={currentDate}
@@ -521,6 +536,10 @@ export default function CalendarPage() {
 }
 
 function getRangeForView(view: string, date: Date): { start: Date; end: Date } {
+  if (view === 'day') {
+    const s = startOfDay(date);
+    return { start: s, end: s };
+  }
   if (view === 'month') {
     return { start: startOfMonth(date), end: endOfMonth(date) };
   }
