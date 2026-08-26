@@ -539,7 +539,10 @@ export function LabOrderForm({ mode, clinicId, initialData, onSuccess }: LabOrde
                 <button
                   key={wt.id}
                   type="button"
-                  onClick={() => handleSelectWorkType(wt)}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    handleSelectWorkType(wt);
+                  }}
                   className="w-full text-left px-4 py-2 hover:bg-gray-100 text-sm"
                 >
                   {wt.name}
@@ -551,7 +554,10 @@ export function LabOrderForm({ mode, clinicId, initialData, onSuccess }: LabOrde
                 ) && (
                   <button
                     type="button"
-                    onClick={handleAddNewWorkType}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      handleAddNewWorkType();
+                    }}
                     className="w-full text-left px-4 py-2 hover:bg-blue-50 text-sm text-blue-600 border-t border-gray-100"
                   >
                     + Add &quot;{workTypeQuery.trim()}&quot; as new work type
@@ -598,7 +604,10 @@ export function LabOrderForm({ mode, clinicId, initialData, onSuccess }: LabOrde
                 <button
                   key={sh.id}
                   type="button"
-                  onClick={() => handleSelectShade(sh)}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    handleSelectShade(sh);
+                  }}
                   className="w-full text-left px-4 py-2 hover:bg-gray-100 text-sm flex items-center gap-2"
                 >
                   {sh.hexColor && (
@@ -613,7 +622,10 @@ export function LabOrderForm({ mode, clinicId, initialData, onSuccess }: LabOrde
               {shadeQuery.trim() && !filteredShades.some((s) => s.name.toLowerCase() === shadeQuery.toLowerCase()) && (
                 <button
                   type="button"
-                  onClick={handleAddNewShade}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    handleAddNewShade();
+                  }}
                   className="w-full text-left px-4 py-2 hover:bg-blue-50 text-sm text-blue-600"
                 >
                   + Add &quot;{shadeQuery}&quot; as new shade
@@ -697,7 +709,10 @@ export function LabOrderForm({ mode, clinicId, initialData, onSuccess }: LabOrde
                       <button
                         key={tpl.id}
                         type="button"
-                        onClick={() => handleSelectStageTemplate(index, tpl)}
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          handleSelectStageTemplate(index, tpl);
+                        }}
                         className="w-full text-left px-4 py-2 hover:bg-gray-100 text-sm"
                       >
                         <div className="font-medium">{tpl.name}</div>
@@ -713,7 +728,10 @@ export function LabOrderForm({ mode, clinicId, initialData, onSuccess }: LabOrde
                       ).some((t) => t.name.toLowerCase() === stage.stageName.trim().toLowerCase()) && (
                         <button
                           type="button"
-                          onClick={() => handleAddStageAsTemplate(index)}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            handleAddStageAsTemplate(index);
+                          }}
                           className="w-full text-left px-4 py-2 hover:bg-blue-50 text-sm text-blue-600 border-t border-gray-100"
                         >
                           + Add &quot;{stage.stageName.trim()}&quot; as new template
