@@ -67,6 +67,8 @@ export function LabOrderForm({ mode, clinicId, initialData, onSuccess }: LabOrde
   const router = useRouter();
   const [labs, setLabs] = useState<Lab[]>([]);
   const [shades, setShades] = useState<Shade[]>([]);
+  const [allWorkTypes, setAllWorkTypes] = useState<WorkType[]>([]);
+  const [allStageTemplates, setAllStageTemplates] = useState<StageTemplate[]>([]);
   const [loading, setLoading] = useState(false);
 
   const [searchPatient, setSearchPatient] = useState('');
@@ -117,15 +119,21 @@ export function LabOrderForm({ mode, clinicId, initialData, onSuccess }: LabOrde
     let cancelled = false;
     const load = async () => {
       try {
-        const [labsRes, shadesRes] = await Promise.all([
+        const [labsRes, shadesRes, wtRes, tplRes] = await Promise.all([
           fetch('/api/labs?active=true'),
           fetch('/api/lab-shades'),
+          fetch('/api/lab-work-types'),
+          fetch('/api/lab-stage-templates'),
         ]);
         const labsData = await labsRes.json();
         const shadesData = await shadesRes.json();
+        const wtData = await wtRes.json();
+        const tplData = await tplRes.json();
         if (!cancelled) {
           setLabs(labsData.labs || []);
           setShades(shadesData.shades || []);
+          setAllWorkTypes(wtData.workTypes || []);
+          setAllStageTemplates(tplData.templates || []);
         }
       } catch (error) {
         console.error('Error fetching form data:', error);
@@ -137,23 +145,19 @@ export function LabOrderForm({ mode, clinicId, initialData, onSuccess }: LabOrde
     };
   }, []);
 
-  // Work type search effect
+  // Work type search - real-time local filtering with debounce (like Shade)
   useEffect(() => {
     if (!workTypeQuery.trim()) {
       setWorkTypeResults([]);
       return;
     }
-    const t = setTimeout(async () => {
-      try {
-        const res = await fetch(`/api/lab-work-types?search=${encodeURIComponent(workTypeQuery)}`);
-        const data = await res.json();
-        setWorkTypeResults(data.workTypes || []);
-      } catch (error) {
-        console.error('Error searching work types:', error);
-      }
+    const t = setTimeout(() => {
+      const q = workTypeQuery.trim().toLowerCase();
+      const filtered = allWorkTypes.filter((wt) => wt.name.toLowerCase().includes(q));
+      setWorkTypeResults(filtered);
     }, 300);
     return () => clearTimeout(t);
-  }, [workTypeQuery]);
+  }, [workTypeQuery, allWorkTypes]);
 
   const handleSelectWorkType = (wt: WorkType) => {
     setForm((f) => ({ ...f, workType: wt.name, workTypeId: wt.id }));
@@ -173,6 +177,7 @@ export function LabOrderForm({ mode, clinicId, initialData, onSuccess }: LabOrde
       const data = await res.json();
       if (res.ok) {
         const newWt = data.workType;
+        setAllWorkTypes((prev) => [...prev, newWt]);
         handleSelectWorkType(newWt);
       } else {
         alert(data.error || 'Failed to add work type');
@@ -253,20 +258,21 @@ export function LabOrderForm({ mode, clinicId, initialData, onSuccess }: LabOrde
     }));
   };
 
-  const handleStageNameChange = async (index: number, value: string) => {
+  const handleStageNameChange = (index: number, value: string) => {
     updateStage(index, 'stageName', value);
     setActiveStageSearch(index);
     if (value.trim().length < 2) {
       setStageTemplateResults((prev) => ({ ...prev, [index]: [] }));
       return;
     }
-    try {
-      const res = await fetch(`/api/lab-stage-templates?search=${encodeURIComponent(value)}`);
-      const data = await res.json();
-      setStageTemplateResults((prev) => ({ ...prev, [index]: data.templates || [] }));
-    } catch (error) {
-      console.error('Error searching templates:', error);
-    }
+    // Debounced local filtering (mirrors Shade/workType behavior)
+    setTimeout(() => {
+      const q = value.trim().toLowerCase();
+      const filtered = allStageTemplates.filter(
+        (tpl) => tpl.name.toLowerCase().includes(q) || (tpl.description && tpl.description.toLowerCase().includes(q))
+      );
+      setStageTemplateResults((prev) => ({ ...prev, [index]: filtered.slice(0, 10) }));
+    }, 300);
   };
 
   const handleSelectStageTemplate = (index: number, tpl: StageTemplate) => {
@@ -294,7 +300,7 @@ export function LabOrderForm({ mode, clinicId, initialData, onSuccess }: LabOrde
       });
       const data = await res.json();
       if (res.ok) {
-        // Mark as template
+        setAllStageTemplates((prev) => [...prev, data.template]);
         updateStage(index, 'templateId' as keyof StageForm, data.template.id);
         alert(`Template "${name}" added for future orders`);
         setStageTemplateResults((prev) => ({ ...prev, [index]: [] }));
@@ -527,27 +533,32 @@ export function LabOrderForm({ mode, clinicId, initialData, onSuccess }: LabOrde
             onBlur={() => setTimeout(() => setShowWorkTypeDropdown(false), 200)}
             className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
           />
-          {showWorkTypeDropdown && workTypeQuery.trim() && (
+          {showWorkTypeDropdown && (
             <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-40 overflow-y-auto">
-              {workTypeResults.length > 0 ? (
-                workTypeResults.map((wt) => (
-                  <button
-                    key={wt.id}
-                    type="button"
-                    onClick={() => handleSelectWorkType(wt)}
-                    className="w-full text-left px-4 py-2 hover:bg-gray-100 text-sm"
-                  >
-                    {wt.name}
-                  </button>
-                ))
-              ) : (
+              {(workTypeQuery.trim() ? workTypeResults : allWorkTypes.slice(0, 20)).map((wt) => (
                 <button
+                  key={wt.id}
                   type="button"
-                  onClick={handleAddNewWorkType}
-                  className="w-full text-left px-4 py-2 hover:bg-blue-50 text-sm text-blue-600"
+                  onClick={() => handleSelectWorkType(wt)}
+                  className="w-full text-left px-4 py-2 hover:bg-gray-100 text-sm"
                 >
-                  + Add &quot;{workTypeQuery}&quot; as new work type
+                  {wt.name}
                 </button>
+              ))}
+              {workTypeQuery.trim() &&
+                !(workTypeQuery.trim() ? workTypeResults : allWorkTypes.slice(0, 20)).some(
+                  (wt) => wt.name.toLowerCase() === workTypeQuery.trim().toLowerCase()
+                ) && (
+                  <button
+                    type="button"
+                    onClick={handleAddNewWorkType}
+                    className="w-full text-left px-4 py-2 hover:bg-blue-50 text-sm text-blue-600 border-t border-gray-100"
+                  >
+                    + Add &quot;{workTypeQuery.trim()}&quot; as new work type
+                  </button>
+                )}
+              {(workTypeQuery.trim() ? workTypeResults : allWorkTypes.slice(0, 20)).length === 0 && !workTypeQuery.trim() && (
+                <p className="px-4 py-2 text-sm text-gray-400">No work types available</p>
               )}
             </div>
           )}
@@ -677,9 +688,12 @@ export function LabOrderForm({ mode, clinicId, initialData, onSuccess }: LabOrde
                   onBlur={() => setTimeout(() => setActiveStageSearch(null), 200)}
                   className="border border-gray-300 rounded-md px-3 py-2 w-full"
                 />
-                {activeStageSearch === index && stageTemplateResults[index]?.length > 0 && (
+                {activeStageSearch === index && (
                   <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-40 overflow-y-auto">
-                    {stageTemplateResults[index].map((tpl) => (
+                    {(stage.stageName.trim()
+                      ? stageTemplateResults[index] || []
+                      : allStageTemplates.slice(0, 10)
+                    ).map((tpl) => (
                       <button
                         key={tpl.id}
                         type="button"
@@ -692,21 +706,21 @@ export function LabOrderForm({ mode, clinicId, initialData, onSuccess }: LabOrde
                         )}
                       </button>
                     ))}
+                    {stage.stageName.trim() &&
+                      !(stage.stageName.trim()
+                        ? stageTemplateResults[index] || []
+                        : allStageTemplates.slice(0, 10)
+                      ).some((t) => t.name.toLowerCase() === stage.stageName.trim().toLowerCase()) && (
+                        <button
+                          type="button"
+                          onClick={() => handleAddStageAsTemplate(index)}
+                          className="w-full text-left px-4 py-2 hover:bg-blue-50 text-sm text-blue-600 border-t border-gray-100"
+                        >
+                          + Add &quot;{stage.stageName.trim()}&quot; as new template
+                        </button>
+                      )}
                   </div>
                 )}
-                {activeStageSearch === index &&
-                  stage.stageName.trim() &&
-                  !stageTemplateResults[index]?.some(
-                    (t) => t.name.toLowerCase() === stage.stageName.toLowerCase()
-                  ) && (
-                    <button
-                      type="button"
-                      onClick={() => handleAddStageAsTemplate(index)}
-                      className="mt-1 text-xs text-blue-600 hover:underline"
-                    >
-                      + Add &quot;{stage.stageName}&quot; as new template
-                    </button>
-                  )}
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <input
