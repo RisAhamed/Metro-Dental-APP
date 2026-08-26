@@ -63,24 +63,25 @@ export function CalendarDayView({
   return (
     <div className="border border-gray-200 rounded-lg overflow-hidden flex flex-col">
       <div className="flex border-b border-gray-200 bg-gray-50 flex-shrink-0">
-        <div className="w-16 flex-shrink-0" />
-        <div className="flex-1 py-2 text-center">
-          <span className="text-xs uppercase tracking-wide font-medium text-gray-500">
+        <div className="w-12 sm:w-16 flex-shrink-0" />
+        <div className="flex-1 py-1.5 sm:py-2 text-center">
+          <span className="text-[10px] sm:text-xs uppercase tracking-wide font-medium text-gray-500">
             {format(date, 'EEEE')}
           </span>
-          <div className="text-lg font-bold leading-tight text-gray-800">{format(date, 'd MMM yyyy')}</div>
+          <div className="text-base sm:text-lg font-bold leading-tight text-gray-800">{format(date, 'd MMM yyyy')}</div>
         </div>
       </div>
 
-      <div className="flex overflow-y-auto overflow-x-auto max-h-[calc(100vh-300px)] min-h-[400px] relative">
-        <div className="w-16 flex-shrink-0 bg-gray-50/50">
+      <div className="flex overflow-y-auto overflow-x-auto max-h-[50vh] sm:max-h-[calc(100vh-300px)] min-h-[300px] sm:min-h-[400px] relative">
+        <div className="w-12 sm:w-16 flex-shrink-0 bg-gray-50/50">
           {slots.map((slot, i) => (
             <div
               key={i}
               style={{ height: SLOT_HEIGHT }}
-              className="px-1.5 text-[10px] text-gray-400 text-right leading-none pt-1"
+              className="px-1 sm:px-1.5 text-[9px] sm:text-[10px] text-gray-400 text-right leading-none pt-1"
             >
-              {slot.minutes === 0 && slotLabel(slot.hour)}
+              {slot.minutes === 0 && <span className="hidden sm:inline">{slotLabel(slot.hour)}</span>}
+              {slot.minutes === 0 && <span className="sm:hidden text-[8px]">{slot.hour > 12 ? slot.hour - 12 : slot.hour}</span>}
             </div>
           ))}
         </div>

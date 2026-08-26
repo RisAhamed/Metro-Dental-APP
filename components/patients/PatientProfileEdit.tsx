@@ -347,16 +347,16 @@ export function PatientProfileEdit({
   );
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-5 border-b border-gray-200 sticky top-0 bg-white z-10">
-          <h2 className="text-lg font-bold text-gray-900">Edit Patient Details</h2>
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 sm:p-4">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-[95vw] sm:max-w-3xl max-h-[92vh] sm:max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between p-3 sm:p-5 border-b border-gray-200 sticky top-0 bg-white z-10">
+          <h2 className="text-base sm:text-lg font-bold text-gray-900">Edit Patient Details</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        <div className="p-5 space-y-6">
+        <div className="p-3 sm:p-5 space-y-4 sm:space-y-6">
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded-md text-sm">
               {error}

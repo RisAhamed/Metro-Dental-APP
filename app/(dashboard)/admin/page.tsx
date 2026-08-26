@@ -117,24 +117,24 @@ export default function AdminDashboardPage() {
     new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-2xl font-bold">Admin Dashboard</h1>
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center justify-between gap-3 sm:gap-4">
+        <h1 className="text-xl sm:text-2xl font-bold">Admin Dashboard</h1>
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-4 w-full sm:w-auto">
           <select
             value={selectedClinic}
             onChange={(e) => setSelectedClinic(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-md text-sm"
+            className="w-full sm:w-auto px-3 py-2 border border-gray-300 rounded-md text-sm"
           >
             <option value="both">Both Clinics</option>
             <option value="clinic_a">Clinic A</option>
             <option value="clinic_b">Clinic B</option>
           </select>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2 w-full sm:w-auto">
             <button
               onClick={() => changeDate(-1)}
-              className="p-2 rounded-md hover:bg-gray-100"
+              className="p-2 rounded-md hover:bg-gray-100 flex-shrink-0"
               aria-label="Previous day"
             >
               <ChevronLeft className="h-4 w-4" />
@@ -143,18 +143,18 @@ export default function AdminDashboardPage() {
               type="date"
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-md text-sm"
+              className="flex-1 sm:flex-none px-2 sm:px-3 py-2 border border-gray-300 rounded-md text-xs sm:text-sm min-w-0"
             />
             <button
               onClick={() => changeDate(1)}
-              className="p-2 rounded-md hover:bg-gray-100"
+              className="p-2 rounded-md hover:bg-gray-100 flex-shrink-0"
               aria-label="Next day"
             >
               <ChevronRight className="h-4 w-4" />
             </button>
             <button
               onClick={() => setSelectedDate(toDateInput(new Date()))}
-              className="px-3 py-1 text-sm bg-gray-100 rounded-md hover:bg-gray-200"
+              className="px-2 sm:px-3 py-1.5 sm:py-1 text-xs sm:text-sm bg-gray-100 rounded-md hover:bg-gray-200 flex-shrink-0"
             >
               Today
             </button>
@@ -167,24 +167,24 @@ export default function AdminDashboardPage() {
       ) : (
         <>
           {/* Summary Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
+          <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4">
             {cards.map((card) => {
               const Icon = card.icon;
               return (
-                <div key={card.label} className="bg-white rounded-lg shadow p-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-gray-500">{card.label}</span>
-                    <div className={`p-1.5 rounded-full ${card.color} bg-opacity-10`}>
-                      <Icon className={`h-4 w-4 ${card.color}`} />
+                <div key={card.label} className="bg-white rounded-lg shadow p-3 sm:p-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[11px] sm:text-xs text-gray-500 truncate">{card.label}</span>
+                    <div className={`p-1 sm:p-1.5 rounded-full ${card.color} bg-opacity-10 flex-shrink-0`}>
+                      <Icon className={`h-3 w-3 sm:h-4 sm:w-4 ${card.color}`} />
                     </div>
                   </div>
-                  <p className="text-2xl font-bold mt-2">{card.value}</p>
+                  <p className="text-xl sm:text-2xl font-bold mt-1.5 sm:mt-2 truncate">{card.value}</p>
                 </div>
               );
             })}
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
             {/* Expense Overview */}
             <div className="bg-white rounded-lg shadow p-5 lg:col-span-1">
               <h3 className="font-semibold text-gray-700 mb-3">

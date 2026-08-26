@@ -781,28 +781,28 @@ export default function PatientProfilePage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
       <div>
         <button
           onClick={() => router.push('/patients')}
-          className="flex items-center gap-1 text-sm text-blue-600 hover:underline mb-3"
+          className="flex items-center gap-1 text-xs sm:text-sm text-blue-600 hover:underline mb-3"
         >
-          <ArrowLeft className="h-4 w-4" /> Back to Patients
+          <ArrowLeft className="h-3 w-3 sm:h-4 sm:w-4" /> Back to Patients
         </button>
 
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-start justify-between flex-wrap gap-3">
-            <div className="flex items-center gap-4">
-              <div className="h-14 w-14 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">
-                <User className="h-7 w-7" />
+        <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+            <div className="flex items-start gap-3 sm:gap-4 min-w-0 flex-1">
+              <div className="h-12 w-12 sm:h-14 sm:w-14 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center flex-shrink-0">
+                <User className="h-6 w-6 sm:h-7 sm:w-7" />
               </div>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">{patient.name}</h1>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="text-sm text-gray-500">{patient.patientId}</span>
+              <div className="min-w-0 flex-1">
+                <h1 className="text-xl sm:text-2xl font-bold text-gray-900 truncate">{patient.name}</h1>
+                <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mt-1">
+                  <span className="text-xs sm:text-sm text-gray-500 truncate">{patient.patientId}</span>
                   <span
-                    className={`px-2 py-0.5 text-xs rounded-full ${
+                    className={`px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-xs rounded-full flex-shrink-0 ${
                       patient.gender === 'MALE'
                         ? 'bg-blue-100 text-blue-800'
                         : patient.gender === 'FEMALE'
@@ -813,45 +813,45 @@ export default function PatientProfilePage() {
                     {patient.gender}
                   </span>
                   {patient.age !== null && (
-                    <span className="text-sm text-gray-500">• {patient.age} yrs</span>
+                    <span className="text-xs sm:text-sm text-gray-500">• {patient.age} yrs</span>
                   )}
                   <button
                     onClick={() => setShowEditModal(true)}
                     title="Edit patient details"
-                    className="inline-flex items-center gap-1 px-2 py-0.5 text-xs text-blue-600 border border-blue-200 rounded-full hover:bg-blue-50"
+                    className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] sm:text-xs text-blue-600 border border-blue-200 rounded-full hover:bg-blue-50 flex-shrink-0"
                   >
                     <Pencil className="h-3 w-3" /> Edit
                   </button>
                 </div>
               </div>
             </div>
-            <div className="text-right">
-              <p className="text-xs text-gray-500">Financial Summary</p>
-              <div className="mt-1 space-y-0.5 text-sm">
-                <p>
-                  <span className="text-gray-500">Advance:</span>{' '}
-                  <span className="font-semibold text-green-600">
+            <div className="sm:text-right w-full sm:w-auto bg-gray-50 sm:bg-transparent rounded-lg p-3 sm:p-0">
+              <p className="text-[10px] sm:text-xs text-gray-500 uppercase tracking-wide sm:normal-case">Financial Summary</p>
+              <div className="mt-1 grid grid-cols-3 sm:block gap-2 sm:space-y-0.5 text-xs sm:text-sm">
+                <p className="text-center sm:text-right">
+                  <span className="block sm:inline text-gray-500 text-[10px] sm:text-sm">Advance</span>{' '}
+                  <span className="font-semibold text-green-600 block sm:inline">
                     ₹{Number(patient.advanceBalance || 0).toFixed(2)}
                   </span>
                 </p>
-                <p>
-                  <span className="text-gray-500">Total Paid:</span>{' '}
-                  <span className="font-semibold text-blue-600">
+                <p className="text-center sm:text-right">
+                  <span className="block sm:inline text-gray-500 text-[10px] sm:text-sm">Paid</span>{' '}
+                  <span className="font-semibold text-blue-600 block sm:inline">
                     ₹{Number(patient.totalPaid || 0).toFixed(2)}
                   </span>
                 </p>
-                <p>
-                  <span className="text-gray-500">Total Due:</span>{' '}
-                  <span className="font-semibold text-red-600">
+                <p className="text-center sm:text-right">
+                  <span className="block sm:inline text-gray-500 text-[10px] sm:text-sm">Due</span>{' '}
+                  <span className="font-semibold text-red-600 block sm:inline">
                     ₹{Number(patient.totalDue || 0).toFixed(2)}
                   </span>
                 </p>
               </div>
-              <div className="mt-3 flex gap-2 justify-end">
+              <div className="mt-3 flex gap-2 sm:justify-end">
                 {canBillingEdit && (
                   <button
                     onClick={() => setShowPaymentModal(true)}
-                    className="px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"
+                    className="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-blue-600 text-white text-xs sm:text-sm rounded-md hover:bg-blue-700 text-center justify-center"
                   >
                     Record Payment
                   </button>
@@ -859,9 +859,9 @@ export default function PatientProfilePage() {
                 {canManageSessions && (
                   <button
                     onClick={() => router.push(`/patients/${patientId}/visits/new`)}
-                    className="flex items-center gap-1 px-4 py-2 bg-green-600 text-white text-sm rounded-md hover:bg-green-700"
+                    className="flex-1 sm:flex-none flex items-center justify-center gap-1 px-3 sm:px-4 py-2 bg-green-600 text-white text-xs sm:text-sm rounded-md hover:bg-green-700"
                   >
-                    <Plus className="h-4 w-4" /> New Session
+                    <Plus className="h-3 w-3 sm:h-4 sm:w-4" /> <span className="hidden xs:inline">New Session</span><span className="xs:hidden">New</span>
                   </button>
                 )}
               </div>
@@ -869,7 +869,7 @@ export default function PatientProfilePage() {
           </div>
 
           {patient.lastVisitDate && (
-            <p className="text-sm text-gray-500 mt-3">
+            <p className="text-xs sm:text-sm text-gray-500 mt-3">
               Last visit: {formatDate(patient.lastVisitDate)}
             </p>
           )}
@@ -877,7 +877,7 @@ export default function PatientProfilePage() {
       </div>
 
       {/* Sidebar + Section content */}
-      <div className="flex gap-5 items-start">
+      <div className="flex flex-col lg:flex-row gap-4 sm:gap-5 items-start">
         <PatientSidebar
           patientName={patient.name}
           patientId={patient.patientId}
@@ -886,7 +886,7 @@ export default function PatientProfilePage() {
           onSectionChange={(s) => setActiveSection(s)}
         />
 
-        <div className="flex-1 min-w-0 bg-white rounded-lg shadow p-6 min-h-[300px]">
+        <div className="flex-1 min-w-0 w-full bg-white rounded-lg shadow p-4 sm:p-6 min-h-[300px] overflow-hidden">
           {renderSection()}
         </div>
       </div>

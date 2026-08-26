@@ -39,68 +39,91 @@ export function CalendarMonthView({
   const days = Array.from({ length: 42 }, (_, i) => addDays(start, i));
 
   return (
-    <div className="border border-gray-200 rounded-lg overflow-hidden">
-      <div className="grid grid-cols-7 border-b border-gray-200 bg-gray-50">
-        {DAY_HEADERS.map((d) => (
-          <div key={d} className="p-2 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">
-            {d}
-          </div>
-        ))}
-      </div>
-      <div className="grid grid-cols-7">
-        {days.map((day) => {
-          const dayAppointments = appointments
-            .filter((a) => isSameDay(new Date(a.appointmentDate), day))
-            .sort(
-              (a, b) =>
-                new Date(a.appointmentDate).getTime() -
-                new Date(b.appointmentDate).getTime()
-            );
-          const inMonth = isSameMonth(day, currentDate);
-          const isToday = isSameDay(day, new Date());
-          return (
+    <div className="border border-gray-200 rounded-lg overflow-hidden overflow-x-auto">
+      <div className="min-w-[320px]">
+        <div className="grid grid-cols-7 border-b border-gray-200 bg-gray-50">
+          {DAY_HEADERS.map((d) => (
             <div
-              key={day.toString()}
-              onClick={() => onDateClick(day)}
-              className={`border-b border-r border-gray-100 last:border-r-0 min-h-[96px] p-1 cursor-pointer transition-colors hover:bg-blue-50/50 ${
-                !inMonth ? 'bg-gray-50/70 text-gray-400' : ''
-              } ${isToday ? 'bg-blue-50/60' : ''}`}
+              key={d}
+              className="p-1 sm:p-2 text-center text-[10px] sm:text-xs font-semibold text-gray-500 uppercase tracking-wide"
             >
-              <div
-                className={`text-xs font-semibold mb-1 inline-flex items-center justify-center w-6 h-6 rounded-full ${
-                  isToday
-                    ? 'bg-blue-600 text-white'
-                    : inMonth
-                    ? 'text-gray-700'
-                    : 'text-gray-400'
-                }`}
-              >
-                {format(day, 'd')}
-              </div>
-              {dayAppointments.slice(0, 3).map((appt) => (
-                <div
-                  key={appt.appointmentId}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onAppointmentClick(appt, e);
-                  }}
-                  style={blockColor(appt)}
-                  className="text-white text-[11px] px-1.5 py-0.5 rounded mb-1 cursor-pointer truncate flex items-center gap-1 hover:brightness-110"
-                >
-                  {appt.isWalkIn && <Zap className="h-3 w-3 flex-shrink-0 fill-white" />}
-                  <span className="truncate">
-                    {format(new Date(appt.appointmentDate), 'HH:mm')} {appt.patientName}
-                  </span>
-                </div>
-              ))}
-              {dayAppointments.length > 3 && (
-                <div className="text-[10px] text-gray-500">
-                  +{dayAppointments.length - 3} more
-                </div>
-              )}
+              <span className="hidden sm:inline">{d}</span>
+              <span className="sm:hidden">{d.charAt(0)}</span>
             </div>
-          );
-        })}
+          ))}
+        </div>
+        <div className="grid grid-cols-7">
+          {days.map((day) => {
+            const dayAppointments = appointments
+              .filter((a) => isSameDay(new Date(a.appointmentDate), day))
+              .sort(
+                (a, b) =>
+                  new Date(a.appointmentDate).getTime() -
+                  new Date(b.appointmentDate).getTime()
+              );
+            const inMonth = isSameMonth(day, currentDate);
+            const isToday = isSameDay(day, new Date());
+            return (
+              <div
+                key={day.toString()}
+                onClick={() => onDateClick(day)}
+                className={`border-b border-r border-gray-100 last:border-r-0 min-h-[70px] sm:min-h-[96px] p-0.5 sm:p-1 cursor-pointer transition-colors hover:bg-blue-50/50 ${
+                  !inMonth ? 'bg-gray-50/70 text-gray-400' : ''
+                } ${isToday ? 'bg-blue-50/60' : ''}`}
+              >
+                <div
+                  className={`text-[10px] sm:text-xs font-semibold mb-0.5 sm:mb-1 inline-flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full ${
+                    isToday
+                      ? 'bg-blue-600 text-white'
+                      : inMonth
+                      ? 'text-gray-700'
+                      : 'text-gray-400'
+                  }`}
+                >
+                  {format(day, 'd')}
+                </div>
+                <div className="hidden sm:block">
+                  {dayAppointments.slice(0, 3).map((appt) => (
+                    <div
+                      key={appt.appointmentId}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onAppointmentClick(appt, e);
+                      }}
+                      style={blockColor(appt)}
+                      className="text-white text-[10px] sm:text-[11px] px-1 sm:px-1.5 py-0.5 rounded mb-0.5 sm:mb-1 cursor-pointer truncate flex items-center gap-1 hover:brightness-110"
+                    >
+                      {appt.isWalkIn && <Zap className="h-2.5 w-2.5 sm:h-3 sm:w-3 flex-shrink-0 fill-white" />}
+                      <span className="truncate">
+                        {format(new Date(appt.appointmentDate), 'HH:mm')} {appt.patientName}
+                      </span>
+                    </div>
+                  ))}
+                  {dayAppointments.length > 3 && (
+                    <div className="text-[10px] text-gray-500">+{dayAppointments.length - 3} more</div>
+                  )}
+                </div>
+                <div className="sm:hidden">
+                  {dayAppointments.slice(0, 1).map((appt) => (
+                    <div
+                      key={appt.appointmentId}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onAppointmentClick(appt, e);
+                      }}
+                      style={blockColor(appt)}
+                      className="w-2 h-2 rounded-full mx-auto mt-0.5"
+                      title={`${format(new Date(appt.appointmentDate), 'HH:mm')} ${appt.patientName}`}
+                    />
+                  ))}
+                  {dayAppointments.length > 1 && (
+                    <div className="text-[8px] text-center text-gray-500 leading-none">+{dayAppointments.length}</div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

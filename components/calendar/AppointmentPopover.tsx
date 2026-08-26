@@ -112,7 +112,7 @@ export function AppointmentPopover({
 
   return (
     <div
-      className="fixed z-50 w-80 bg-white rounded-lg shadow-xl border border-gray-200"
+      className="fixed z-50 w-[min(320px,90vw)] bg-white rounded-lg shadow-xl border border-gray-200"
       style={{ top: Math.max(position.y, 8), left: popoverLeft }}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}

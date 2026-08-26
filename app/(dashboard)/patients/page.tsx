@@ -181,57 +181,57 @@ export default function PatientsPage() {
   };
 
   return (
-    <div className="flex h-full gap-6">
-      {/* Groups Sidebar */}
-      <div className="w-64 flex-shrink-0 bg-white rounded-lg shadow p-4 h-[calc(100vh-120px)] overflow-y-auto">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold text-gray-700">Groups</h3>
+    <div className="flex flex-col lg:flex-row h-full gap-4 sm:gap-6">
+      {/* Groups Sidebar - horizontal on mobile, vertical on desktop */}
+      <div className="w-full lg:w-64 flex-shrink-0 bg-white rounded-lg shadow p-3 sm:p-4 lg:h-[calc(100vh-120px)] lg:overflow-y-auto">
+        <div className="flex items-center justify-between mb-3 sm:mb-4">
+          <h3 className="font-semibold text-gray-700 text-sm sm:text-base">Groups</h3>
           <button
             onClick={() => {
               setGroupForm({ id: '', name: '' });
               setGroupAction('create');
               setShowGroupModal(true);
             }}
-            className="text-sm text-blue-600 hover:underline"
+            className="text-xs sm:text-sm text-blue-600 hover:underline"
           >
             Manage
           </button>
         </div>
 
-        <div className="space-y-1">
+        <div className="flex lg:flex-col gap-1.5 overflow-x-auto lg:overflow-visible pb-2 lg:pb-0 -mx-1 px-1 lg:mx-0 lg:px-0 scrollbar-thin">
           <button
             onClick={() => selectGroup(null)}
-            className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-              !selectedGroup ? 'bg-blue-50 text-blue-700' : 'hover:bg-gray-100'
+            className={`flex-shrink-0 lg:w-full text-left px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
+              !selectedGroup ? 'bg-blue-600 text-white lg:bg-blue-50 lg:text-blue-700' : 'bg-gray-100 lg:bg-transparent hover:bg-gray-100'
             }`}
           >
             All Patients
-            <span className="float-right text-gray-500">{total}</span>
+            <span className="ml-2 text-xs opacity-75">({total})</span>
           </button>
 
           {groups.map((group) => (
             <button
               key={group.id}
               onClick={() => selectGroup(group.id)}
-              className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                selectedGroup === group.id ? 'bg-blue-50 text-blue-700' : 'hover:bg-gray-100'
+              className={`flex-shrink-0 lg:w-full text-left px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
+                selectedGroup === group.id ? 'bg-blue-600 text-white lg:bg-blue-50 lg:text-blue-700' : 'bg-gray-100 lg:bg-transparent hover:bg-gray-100'
               }`}
             >
               <span className="inline-flex items-center gap-1">
-                <Tag className="h-3 w-3" />
+                <Tag className="h-3 w-3 hidden sm:inline" />
                 {group.name}
               </span>
-              <span className="float-right text-gray-500">{group.patientCount}</span>
+              <span className="ml-2 text-xs opacity-75">({group.patientCount})</span>
             </button>
           ))}
         </div>
       </div>
 
       {/* Main Area */}
-      <div className="flex-1 space-y-4 min-w-0">
+      <div className="flex-1 space-y-3 sm:space-y-4 min-w-0">
         {/* Search Bar */}
-        <div className="bg-white rounded-lg shadow p-4">
-          <form onSubmit={handleSearch} className="flex gap-4">
+        <div className="bg-white rounded-lg shadow p-3 sm:p-4">
+          <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-2 sm:gap-4">
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
               <input
@@ -239,21 +239,23 @@ export default function PatientsPage() {
                 placeholder="Search by name, patient ID, or phone..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full pl-10 pr-4 py-2.5 sm:py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
               />
             </div>
-            <button
-              type="submit"
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-            >
-              Search
-            </button>
-            <Link
-              href="/patients/new"
-              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 flex items-center gap-2"
-            >
-              <Plus className="h-4 w-4" /> New Patient
-            </Link>
+            <div className="flex gap-2">
+              <button
+                type="submit"
+                className="flex-1 sm:flex-none px-4 py-2.5 sm:py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm"
+              >
+                Search
+              </button>
+              <Link
+                href="/patients/new"
+                className="flex-1 sm:flex-none px-4 py-2.5 sm:py-2 bg-green-600 text-white rounded-md hover:bg-green-700 flex items-center justify-center gap-2 text-sm whitespace-nowrap"
+              >
+                <Plus className="h-4 w-4" /> <span className="hidden xs:inline">New Patient</span><span className="xs:hidden">New</span>
+              </Link>
+            </div>
           </form>
         </div>
 
@@ -330,10 +332,10 @@ export default function PatientsPage() {
 
       {/* Group Management Modal */}
       {showGroupModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full max-h-[80vh] flex flex-col">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold">Manage Groups</h2>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 sm:p-4">
+          <div className="bg-white rounded-lg p-4 sm:p-6 max-w-[95vw] sm:max-w-md max-h-[85vh] sm:max-h-[80vh] flex flex-col">
+            <div className="flex items-center justify-between mb-3 sm:mb-4">
+              <h2 className="text-lg sm:text-xl font-bold">Manage Groups</h2>
               <button
                 onClick={() => setShowGroupModal(false)}
                 className="text-gray-500 hover:text-gray-700"

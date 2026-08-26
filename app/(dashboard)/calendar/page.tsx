@@ -51,7 +51,10 @@ const HOVER_CLOSE_DELAY = 250;
 export default function CalendarPage() {
   const { sessionClaims } = useAuth();
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [view, setView] = useState<'day' | 'week' | 'month'>('week');
+  const [view, setView] = useState<'day' | 'week' | 'month'>(() => {
+    if (typeof window !== 'undefined' && window.innerWidth < 768) return 'day';
+    return 'week';
+  });
   const [appointments, setAppointments] = useState<CalendarAppointment[]>([]);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [selectedDoctor, setSelectedDoctor] = useState<string>('all');
@@ -75,12 +78,18 @@ export default function CalendarPage() {
   const [dayAppointments, setDayAppointments] = useState<CalendarAppointment[]>([]);
   const [statsLoading, setStatsLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(() => new Date());
-  const [showDoctorsPanel, setShowDoctorsPanel] = useState(true);
+  const [showDoctorsPanel, setShowDoctorsPanel] = useState(() => {
+    if (typeof window !== 'undefined' && window.innerWidth < 768) return false;
+    return true;
+  });
 
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const clinicId = (sessionClaims?.primaryClinicId as string) || 'clinic_a';
   const isMobile = useMobile();
+
+  // Mobile defaults are handled via lazy initializers above.
+  // View/panel can still be manually toggled via UI controls.
 
   // ---------- Data loading ----------
   useEffect(() => {
@@ -325,10 +334,53 @@ export default function CalendarPage() {
   );
 
   return (
-    <div className="flex gap-4">
+    <div className="flex flex-col lg:flex-row gap-3 sm:gap-4">
       {/* Left Sidebar — Doctors & Reminders (collapsible) */}
       {showDoctorsPanel && (
-        <div className="w-52 flex-shrink-0 bg-white rounded-lg shadow p-4 h-[calc(100vh-160px)] overflow-y-auto">
+        <>
+          {/* Mobile: overlay drawer */}
+          {isMobile ? (
+            <>
+              <div className="fixed inset-0 z-40 bg-black/40 lg:hidden" onClick={() => setShowDoctorsPanel(false)} />
+              <div className="fixed left-0 top-0 z-40 w-64 h-full bg-white shadow-xl p-4 overflow-y-auto lg:hidden">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-semibold text-gray-700">Doctors</h3>
+                  <button onClick={() => setShowDoctorsPanel(false)} className="p-2 hover:bg-gray-100 rounded-md">
+                    ✕
+                  </button>
+                </div>
+                <div className="space-y-1">
+                  <button
+                    onClick={() => {
+                      setSelectedDoctor('all');
+                      setShowDoctorsPanel(false);
+                    }}
+                    className={`w-full text-left px-3 py-2.5 rounded-md text-sm font-medium transition-colors truncate ${
+                      selectedDoctor === 'all' ? 'bg-blue-50 text-blue-700' : 'hover:bg-gray-100'
+                    }`}
+                  >
+                    All Doctors
+                  </button>
+                  {doctors.map((doctor) => (
+                    <button
+                      key={doctor.id}
+                      onClick={() => {
+                        setSelectedDoctor(doctor.id);
+                        setShowDoctorsPanel(false);
+                      }}
+                      title={`Dr. ${doctor.name}`}
+                      className={`w-full text-left px-3 py-2.5 rounded-md text-sm font-medium transition-colors truncate ${
+                        selectedDoctor === doctor.id ? 'bg-blue-50 text-blue-700' : 'hover:bg-gray-100'
+                      }`}
+                    >
+                      Dr. {doctor.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </>
+          ) : null}
+          <div className="hidden lg:block w-52 flex-shrink-0 bg-white rounded-lg shadow p-4 h-[calc(100vh-160px)] overflow-y-auto">
           <h3 className="font-semibold text-gray-700 mb-4">Doctors</h3>
           <div className="space-y-1">
             <button
@@ -389,40 +441,50 @@ export default function CalendarPage() {
             </div>
           )}
         </div>
+          </>
       )}
 
       {/* Calendar Area */}
-      <div className="flex-1 min-w-0 bg-white rounded-lg shadow p-4 flex flex-col">
-        <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
-          <div className="flex items-center gap-2 min-w-0">
+      <div className="flex-1 min-w-0 bg-white rounded-lg shadow p-3 sm:p-4 flex flex-col">
+        <div className="flex flex-col gap-3 mb-4">
+          <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
             <button
               onClick={() => setShowDoctorsPanel((s) => !s)}
               aria-label={showDoctorsPanel ? 'Hide doctors panel' : 'Show doctors panel'}
               title={showDoctorsPanel ? 'Hide doctors panel' : 'Show doctors panel'}
-              className="p-2 rounded-md hover:bg-gray-100 text-gray-500"
+              className="p-1.5 sm:p-2 rounded-md hover:bg-gray-100 text-gray-500 flex-shrink-0"
             >
               {showDoctorsPanel ? (
-                <PanelLeftClose className="h-5 w-5" />
+                <PanelLeftClose className="h-4 w-4 sm:h-5 sm:w-5" />
               ) : (
-                <PanelLeftOpen className="h-5 w-5" />
+                <PanelLeftOpen className="h-4 w-4 sm:h-5 sm:w-5" />
               )}
             </button>
-            <button onClick={() => handleNavigate('prev')} className="p-2 rounded-md hover:bg-gray-100" aria-label="Previous">
-              <ChevronLeft className="h-5 w-5" />
+            <button onClick={() => handleNavigate('prev')} className="p-1.5 sm:p-2 rounded-md hover:bg-gray-100 flex-shrink-0" aria-label="Previous">
+              <ChevronLeft className="h-4 w-4 sm:h-5 sm:w-5" />
             </button>
-            <h2 className="text-lg font-semibold whitespace-nowrap">
-              {view === 'day'
-                ? format(currentDate, 'EEEE, MMM d, yyyy')
-                : view === 'month'
-                  ? format(currentDate, 'MMMM yyyy')
-                  : `${format(weekStart, 'MMM d')} - ${format(addDays(weekStart, 6), 'MMM d, yyyy')}`}
+            <h2 className="text-sm sm:text-base lg:text-lg font-semibold truncate flex-1 text-center">
+              <span className="hidden sm:inline">
+                {view === 'day'
+                  ? format(currentDate, 'EEEE, MMM d, yyyy')
+                  : view === 'month'
+                    ? format(currentDate, 'MMMM yyyy')
+                    : `${format(weekStart, 'MMM d')} - ${format(addDays(weekStart, 6), 'MMM d, yyyy')}`}
+              </span>
+              <span className="sm:hidden">
+                {view === 'day'
+                  ? format(currentDate, 'MMM d')
+                  : view === 'month'
+                    ? format(currentDate, 'MMM yyyy')
+                    : format(weekStart, 'MMM d')}
+              </span>
             </h2>
-            <button onClick={() => handleNavigate('next')} className="p-2 rounded-md hover:bg-gray-100" aria-label="Next">
-              <ChevronRight className="h-5 w-5" />
+            <button onClick={() => handleNavigate('next')} className="p-1.5 sm:p-2 rounded-md hover:bg-gray-100 flex-shrink-0" aria-label="Next">
+              <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5" />
             </button>
             <button
               onClick={handleToday}
-              className="ml-1 px-3 py-1.5 text-sm bg-gray-100 rounded-md hover:bg-gray-200 font-medium"
+              className="px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm bg-gray-100 rounded-md hover:bg-gray-200 font-medium flex-shrink-0"
             >
               Today
             </button>
@@ -433,7 +495,7 @@ export default function CalendarPage() {
                 <button
                   key={v}
                   onClick={() => setView(v)}
-                  className={`px-3 py-1.5 text-sm capitalize ${
+                  className={`px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm capitalize ${
                     view === v ? 'bg-blue-600 text-white' : 'bg-white text-gray-700'
                   }`}
                 >
@@ -441,20 +503,24 @@ export default function CalendarPage() {
                 </button>
               ))}
             </div>
-            <button
-              onClick={handleWalkIn}
-              className="px-3 py-1.5 bg-white border border-blue-200 text-blue-600 rounded-md hover:bg-blue-50 flex items-center gap-1.5 text-sm"
-            >
-              <Plus className="h-4 w-4" />
-              Walk-in
-            </button>
-            <button
-              onClick={handleBookAppointment}
-              className="px-4 py-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center gap-2 text-sm"
-            >
-              <Plus className="h-4 w-4" />
-              Book Appointment
-            </button>
+            <div className="flex gap-2 ml-auto">
+              <button
+                onClick={handleWalkIn}
+                className="px-2 sm:px-3 py-1 sm:py-1.5 bg-white border border-blue-200 text-blue-600 rounded-md hover:bg-blue-50 flex items-center gap-1 text-xs sm:text-sm flex-1 sm:flex-none justify-center"
+              >
+                <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden xs:inline">Walk-in</span>
+                <span className="xs:hidden">Walk-in</span>
+              </button>
+              <button
+                onClick={handleBookAppointment}
+                className="px-3 sm:px-4 py-1 sm:py-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center gap-1.5 text-xs sm:text-sm flex-1 sm:flex-none justify-center"
+              >
+                <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">Book Appointment</span>
+                <span className="sm:hidden">Book</span>
+              </button>
+            </div>
           </div>
         </div>
 

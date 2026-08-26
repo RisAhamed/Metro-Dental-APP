@@ -10,8 +10,6 @@ const END_HOUR = 21; // 9:00 PM
 const SLOT_MINUTES = 30;
 const SLOT_HEIGHT = 44;
 const TOTAL_SLOTS = ((END_HOUR - START_HOUR) * 60) / SLOT_MINUTES;
-const MIN_COLUMN_WIDTH = 120;
-
 const DAY_HEADERS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 function slotLabel(hour: number): string {
@@ -78,25 +76,25 @@ export function CalendarWeekView({
   return (
     <div className="border border-gray-200 rounded-lg overflow-hidden flex flex-col">
       {/* Day headers */}
-      <div className="flex border-b border-gray-200 bg-gray-50 flex-shrink-0">
-        <div className="w-16 flex-shrink-0" />
+      <div className="flex border-b border-gray-200 bg-gray-50 flex-shrink-0 overflow-x-auto">
+        <div className="w-12 sm:w-16 flex-shrink-0" />
         {days.map((day, i) => (
           <div
             key={day.toString()}
-            style={{ minWidth: MIN_COLUMN_WIDTH }}
-            className={`flex-1 py-2 text-center border-l border-gray-100 first:border-l-0 ${
+            className={`flex-1 py-1.5 sm:py-2 text-center border-l border-gray-100 first:border-l-0 min-w-[56px] sm:min-w-[120px] ${
               isToday(day) ? 'bg-blue-50' : ''
             }`}
           >
             <span
-              className={`text-xs uppercase tracking-wide font-medium ${
+              className={`text-[10px] sm:text-xs uppercase tracking-wide font-medium ${
                 isToday(day) ? 'text-blue-600' : 'text-gray-400'
               }`}
             >
-              {DAY_HEADERS[i]}
+              <span className="hidden sm:inline">{DAY_HEADERS[i]}</span>
+              <span className="sm:hidden">{DAY_HEADERS[i].charAt(0)}</span>
             </span>
             <div
-              className={`text-lg font-bold leading-tight ${
+              className={`text-base sm:text-lg font-bold leading-tight ${
                 isToday(day) ? 'text-blue-600' : 'text-gray-800'
               }`}
             >
@@ -107,16 +105,17 @@ export function CalendarWeekView({
       </div>
 
       {/* Time grid */}
-      <div className="flex overflow-y-auto overflow-x-auto max-h-[calc(100vh-300px)] min-h-[400px] relative">
+      <div className="flex overflow-y-auto overflow-x-auto max-h-[50vh] sm:max-h-[calc(100vh-300px)] min-h-[300px] sm:min-h-[400px] relative">
         {/* Time gutter */}
-        <div className="w-16 flex-shrink-0 bg-gray-50/50">
+        <div className="w-12 sm:w-16 flex-shrink-0 bg-gray-50/50">
           {slots.map((slot, i) => (
             <div
               key={i}
               style={{ height: SLOT_HEIGHT }}
-              className="px-1.5 text-[10px] text-gray-400 text-right leading-none pt-1"
+              className="px-1 sm:px-1.5 text-[9px] sm:text-[10px] text-gray-400 text-right leading-none pt-1"
             >
-              {slot.minutes === 0 && slotLabel(slot.hour)}
+              {slot.minutes === 0 && <span className="hidden sm:inline">{slotLabel(slot.hour)}</span>}
+              {slot.minutes === 0 && <span className="sm:hidden text-[8px]">{slot.hour > 12 ? slot.hour - 12 : slot.hour}</span>}
             </div>
           ))}
         </div>
@@ -142,8 +141,8 @@ export function CalendarWeekView({
             return (
               <div
                 key={day.toString()}
-                style={{ minWidth: MIN_COLUMN_WIDTH, minHeight: TOTAL_SLOTS * SLOT_HEIGHT }}
-                className={`flex-1 relative border-l border-gray-100 first:border-l-0 ${
+                style={{ minHeight: TOTAL_SLOTS * SLOT_HEIGHT }}
+                className={`flex-1 relative border-l border-gray-100 first:border-l-0 min-w-[56px] sm:min-w-[120px] ${
                   isToday(day) ? 'bg-blue-50/40' : ''
                 }`}
               >
