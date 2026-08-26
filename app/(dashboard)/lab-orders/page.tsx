@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@clerk/nextjs';
 import Link from 'next/link';
-import { Plus, FlaskConical } from 'lucide-react';
+import { Plus, FlaskConical, Pencil } from 'lucide-react';
 
 interface LabOrder {
   orderId: string;
@@ -13,9 +13,21 @@ interface LabOrder {
   patientName: string;
   orderedByDoctorName: string;
   workDescription: string;
+  workType: string | null;
+  shade: string | null;
+  totalAmount: string | null;
   status: string;
   stages: Array<{ status: string }>;
   createdAt: string;
+}
+
+interface Stats {
+  totalOrders: number;
+  totalAmount: number;
+  byWorkType: Array<{ name: string; count: number; total: number }>;
+  byLab: Array<{ name: string; count: number; total: number }>;
+  byStatus: Record<string, number>;
+  avgStageCompletionHours: number | null;
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -34,6 +46,7 @@ export default function LabOrdersPage() {
   const [orders, setOrders] = useState<LabOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('all');
+  const [stats, setStats] = useState<Stats | null>(null);
 
   const clinicId = (sessionClaims?.primaryClinicId as string) || 'clinic_a';
   const role = (sessionClaims?.role as string) || '';
@@ -64,6 +77,23 @@ export default function LabOrdersPage() {
     };
   }, [clinicId, statusFilter]);
 
+  useEffect(() => {
+    let cancelled = false;
+    const loadStats = async () => {
+      try {
+        const res = await fetch(`/api/lab-orders/stats?clinicId=${clinicId}`);
+        const data = await res.json();
+        if (!cancelled && !data.error) setStats(data);
+      } catch (error) {
+        console.error('Error fetching stats:', error);
+      }
+    };
+    loadStats();
+    return () => {
+      cancelled = true;
+    };
+  }, [clinicId]);
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -77,6 +107,73 @@ export default function LabOrdersPage() {
           </Link>
         )}
       </div>
+
+      {/* Analytics Summary */}
+      {stats && (
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+          <div className="bg-white rounded-lg shadow p-4">
+            <p className="text-xs text-gray-500 uppercase">Total Orders</p>
+            <p className="text-2xl font-bold">{stats.totalOrders}</p>
+          </div>
+          <div className="bg-white rounded-lg shadow p-4">
+            <p className="text-xs text-gray-500 uppercase">Total Amount</p>
+            <p className="text-2xl font-bold">₹{stats.totalAmount.toLocaleString('en-IN')}</p>
+          </div>
+          <div className="bg-white rounded-lg shadow p-4">
+            <p className="text-xs text-gray-500 uppercase">Pending</p>
+            <p className="text-2xl font-bold text-yellow-600">{stats.byStatus.PENDING || 0}</p>
+          </div>
+          <div className="bg-white rounded-lg shadow p-4">
+            <p className="text-xs text-gray-500 uppercase">In Progress</p>
+            <p className="text-2xl font-bold text-blue-600">{stats.byStatus.IN_PROGRESS || 0}</p>
+          </div>
+          <div className="bg-white rounded-lg shadow p-4">
+            <p className="text-xs text-gray-500 uppercase">Completed</p>
+            <p className="text-2xl font-bold text-green-600">{stats.byStatus.COMPLETED || 0}</p>
+          </div>
+          <div className="bg-white rounded-lg shadow p-4">
+            <p className="text-xs text-gray-500 uppercase">Avg Stage Time</p>
+            <p className="text-2xl font-bold">
+              {stats.avgStageCompletionHours !== null
+                ? `${stats.avgStageCompletionHours.toFixed(1)}h`
+                : '—'}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {stats && (stats.byWorkType.length > 0 || stats.byLab.length > 0) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          <div className="bg-white rounded-lg shadow p-4">
+            <h3 className="text-sm font-semibold text-gray-700 mb-2">Top Work Types</h3>
+            <div className="space-y-1">
+              {stats.byWorkType.map((wt) => (
+                <div key={wt.name} className="flex justify-between text-sm">
+                  <span>{wt.name}</span>
+                  <span className="text-gray-500">
+                    {wt.count} • ₹{wt.total.toLocaleString('en-IN')}
+                  </span>
+                </div>
+              ))}
+              {stats.byWorkType.length === 0 && <p className="text-xs text-gray-400">No data</p>}
+            </div>
+          </div>
+          <div className="bg-white rounded-lg shadow p-4">
+            <h3 className="text-sm font-semibold text-gray-700 mb-2">Top Labs</h3>
+            <div className="space-y-1">
+              {stats.byLab.map((lab) => (
+                <div key={lab.name} className="flex justify-between text-sm">
+                  <span>{lab.name}</span>
+                  <span className="text-gray-500">
+                    {lab.count} • ₹{lab.total.toLocaleString('en-IN')}
+                  </span>
+                </div>
+              ))}
+              {stats.byLab.length === 0 && <p className="text-xs text-gray-400">No data</p>}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="flex gap-2 mb-4">
         {[
@@ -124,6 +221,15 @@ export default function LabOrdersPage() {
                   Lab
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  Work Type
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  Shade
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  Amount
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                   Doctor
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
@@ -152,6 +258,22 @@ export default function LabOrdersPage() {
                       {order.labName}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {order.workType || '—'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      {order.shade ? (
+                        <span className="inline-flex items-center gap-1">
+                          <span className="w-3 h-3 rounded-full border border-gray-300 inline-block" style={{ backgroundColor: '#fff' }} />
+                          {order.shade}
+                        </span>
+                      ) : (
+                        '—'
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      {order.totalAmount ? `₹${Number(order.totalAmount).toLocaleString('en-IN')}` : '—'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {order.orderedByDoctorName}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -164,6 +286,16 @@ export default function LabOrdersPage() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {completedStages}/{totalStages}
                     </td>
+                    {isDoctor && (
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <Link
+                          href={`/lab-orders/${order.orderId}/edit`}
+                          className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800"
+                        >
+                          <Pencil className="h-4 w-4" /> Edit
+                        </Link>
+                      </td>
+                    )}
                   </tr>
                 );
               })}

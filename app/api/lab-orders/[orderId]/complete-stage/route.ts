@@ -58,7 +58,7 @@ export async function POST(
       return NextResponse.json({ error: 'Stage already completed' }, { status: 409 });
     }
 
-    // Update stage status
+    // Update stage status and price if provided
     const updatedStages = orderStages.map((s) => {
       if (s.stageId === stageId) {
         return {
@@ -68,10 +68,14 @@ export async function POST(
           completedBy: userId,
           completedByName: labTechName,
           notes: notes || s.notes,
+          price: stageCost !== undefined && stageCost !== null ? String(stageCost) : s.price ?? null,
         };
       }
       return s;
     });
+
+    // Compute new totalAmount from stage prices
+    const newTotalAmount = updatedStages.reduce((sum, s) => sum + (Number(s.price) || 0), 0);
 
     // Check if all stages are complete
     const allDone = updatedStages.every((s) => s.status === 'COMPLETED');
@@ -81,6 +85,7 @@ export async function POST(
       .set({
         stages: updatedStages,
         status: allDone ? 'COMPLETED' : 'IN_PROGRESS',
+        totalAmount: newTotalAmount ? String(newTotalAmount) : null,
         updatedAt: new Date(),
       })
       .where(eq(labOrders.orderId, orderId));

@@ -36,6 +36,12 @@ interface LabOrder {
   orderDate: string;
   overallDueDate: string | null;
   workDescription: string;
+  workType: string | null;
+  workTypeId: string | null;
+  shade: string | null;
+  shadeId: string | null;
+  totalAmount: string | null;
+  amountPaid: string | null;
   stages: Stage[];
   status: string;
   issues?: Issue[];
@@ -243,6 +249,35 @@ export default function LabOrderDetailPage() {
             <dt className="text-sm text-gray-500">Due Date</dt>
             <dd className="font-medium">
               {order.overallDueDate ? new Date(order.overallDueDate).toLocaleDateString() : 'Not set'}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-sm text-gray-500">Work Type</dt>
+            <dd className="font-medium">{order.workType || '—'}</dd>
+          </div>
+          <div>
+            <dt className="text-sm text-gray-500">Shade</dt>
+            <dd className="font-medium">
+              {order.shade ? (
+                <span className="inline-flex items-center gap-1">
+                  <span className="w-3 h-3 rounded-full border border-gray-300 inline-block" />
+                  {order.shade}
+                </span>
+              ) : (
+                '—'
+              )}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-sm text-gray-500">Total Amount</dt>
+            <dd className="font-medium">
+              {order.totalAmount ? `₹${Number(order.totalAmount).toLocaleString('en-IN')}` : '—'}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-sm text-gray-500">Amount Paid</dt>
+            <dd className="font-medium text-green-600">
+              {order.amountPaid ? `₹${Number(order.amountPaid).toLocaleString('en-IN')}` : '₹0'}
             </dd>
           </div>
         </dl>

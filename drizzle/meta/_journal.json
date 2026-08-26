@@ -141,6 +141,13 @@
       "when": 1787590519513,
       "tag": "0019_handy_sandman",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1787738950155,
+      "tag": "0020_lethal_moon_knight",
+      "breakpoints": true
     }
   ]
 }

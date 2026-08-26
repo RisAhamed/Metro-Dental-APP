@@ -16,6 +16,12 @@ import { defaultSundayTasks } from './sundayTasks';
 import { inventoryCategories } from './inventoryCategories';
 import { defaultProcedures } from './procedures';
 import { proceduresCatalog } from '@/lib/db/schema/proceduresCatalog';
+import { defaultLabWorkTypes } from './labWorkTypes';
+import { labWorkTypes } from '@/lib/db/schema/labWorkTypes';
+import { defaultLabStageTemplates } from './labStageTemplates';
+import { labStageTemplates } from '@/lib/db/schema/labStageTemplates';
+import { defaultLabShades } from './labShades';
+import { labShades } from '@/lib/db/schema/labShades';
 import { sql, isNull } from 'drizzle-orm';
 
 export const slugify = (name: string) => name.toLowerCase().replace(/[^a-z0-9]/g, '-');
@@ -169,19 +175,73 @@ export async function seedProceduresCatalog() {
   return seeded;
 }
 
+export async function seedLabWorkTypes() {
+  let seeded = 0;
+  for (const name of defaultLabWorkTypes) {
+    const id = `wt_${slugify(name)}`;
+    await db
+      .insert(labWorkTypes)
+      .values({ id, name, isActive: true })
+      .onConflictDoNothing();
+    seeded += 1;
+  }
+  return seeded;
+}
+
+export async function seedLabStageTemplates() {
+  let seeded = 0;
+  for (const tpl of defaultLabStageTemplates) {
+    const id = `st_${slugify(tpl.name)}`;
+    await db
+      .insert(labStageTemplates)
+      .values({ id, name: tpl.name, description: tpl.description, isActive: true })
+      .onConflictDoNothing();
+    seeded += 1;
+  }
+  return seeded;
+}
+
+export async function seedLabShades() {
+  let seeded = 0;
+  for (const shade of defaultLabShades) {
+    const id = `shade_${slugify(shade.name)}`;
+    await db
+      .insert(labShades)
+      .values({ id, name: shade.name, hexColor: shade.hexColor, isActive: true })
+      .onConflictDoNothing();
+    seeded += 1;
+  }
+  return seeded;
+}
+
 export async function seedAllData(clinicId: string, createdBy = 'system') {
-  const [referrals, conditions, categories, groups, labCount, surgeryCount, taskCount, invCategories, procedures] =
-    await Promise.all([
-      seedReferralSources(),
-      seedMedicalConditions(),
-      seedAppointmentCategories(clinicId),
-      seedPatientGroups(clinicId, createdBy),
-      seedLabs(createdBy),
-      seedSurgeryTypes(),
-      seedSundayTasks(),
-      seedInventoryCategories(),
-      seedProceduresCatalog(),
-    ]);
+  const [
+    referrals,
+    conditions,
+    categories,
+    groups,
+    labCount,
+    surgeryCount,
+    taskCount,
+    invCategories,
+    procedures,
+    workTypes,
+    stageTemplates,
+    shades,
+  ] = await Promise.all([
+    seedReferralSources(),
+    seedMedicalConditions(),
+    seedAppointmentCategories(clinicId),
+    seedPatientGroups(clinicId, createdBy),
+    seedLabs(createdBy),
+    seedSurgeryTypes(),
+    seedSundayTasks(),
+    seedInventoryCategories(),
+    seedProceduresCatalog(),
+    seedLabWorkTypes(),
+    seedLabStageTemplates(),
+    seedLabShades(),
+  ]);
 
   return {
     referrals,
@@ -193,5 +253,8 @@ export async function seedAllData(clinicId: string, createdBy = 'system') {
     sundayTasks: taskCount,
     inventoryCategories: invCategories,
     procedures,
+    workTypes,
+    stageTemplates,
+    shades,
   };
 }

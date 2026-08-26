@@ -22,6 +22,7 @@ interface Stage {
   completedAt: string | null;
   completedByName: string | null;
   notes: string | null;
+  price: string | null;
 }
 
 interface Issue {
@@ -50,6 +51,9 @@ interface LabOrder {
   patientName: string;
   orderedByDoctorName: string;
   workDescription: string;
+  workType: string | null;
+  shade: string | null;
+  totalAmount: string | null;
   status: string;
   stages: Stage[];
   issues: Issue[];
@@ -278,6 +282,20 @@ export default function LabPortalOrderDetailPage() {
           <div>
             <dt className="text-sm text-gray-500">Ordering Doctor</dt>
             <dd className="font-medium">{order.orderedByDoctorName}</dd>
+          </div>
+          <div>
+            <dt className="text-sm text-gray-500">Work Type</dt>
+            <dd className="font-medium">{order.workType || '—'}</dd>
+          </div>
+          <div>
+            <dt className="text-sm text-gray-500">Shade</dt>
+            <dd className="font-medium">{order.shade || '—'}</dd>
+          </div>
+          <div>
+            <dt className="text-sm text-gray-500">Total Amount</dt>
+            <dd className="font-medium">
+              {order.totalAmount ? `₹${Number(order.totalAmount).toLocaleString('en-IN')}` : '—'}
+            </dd>
           </div>
         </dl>
 

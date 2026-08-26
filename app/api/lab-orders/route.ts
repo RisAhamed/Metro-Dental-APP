@@ -76,6 +76,7 @@ export async function POST(req: NextRequest) {
   const {
     labId, labName, clinicId, patientId, patientName,
     visitId, workDescription, stages, overallDueDate,
+    workType, workTypeId, shade, shadeId, totalAmount,
   } = body;
 
   if (!labId || !clinicId || !patientId || !workDescription || !stages) {
@@ -122,6 +123,8 @@ export async function POST(req: NextRequest) {
       stageName: string;
       description?: string;
       deadline?: string | null;
+      price?: string | number | null;
+      templateId?: string | null;
     }>).map((s, i) => ({
       stageId: s.stageId || `stage_${i + 1}`,
       stageName: s.stageName,
@@ -132,7 +135,16 @@ export async function POST(req: NextRequest) {
       completedBy: null,
       completedByName: null,
       notes: null,
+      price: s.price !== undefined && s.price !== null && s.price !== '' ? String(s.price) : null,
+      templateId: s.templateId || null,
     }));
+
+    // Compute totalAmount as sum of stage prices if not provided
+    let computedTotal = totalAmount;
+    if (!computedTotal) {
+      const sum = normalizedStages.reduce((acc, s) => acc + (Number(s.price) || 0), 0);
+      if (sum > 0) computedTotal = String(sum);
+    }
 
     await db.insert(labOrders).values({
       orderId,
@@ -147,7 +159,13 @@ export async function POST(req: NextRequest) {
       orderDate: new Date(),
       overallDueDate: overallDueDate ? new Date(overallDueDate) : null,
       workDescription,
-      stages: normalizedStages,
+      workType: workType || null,
+      workTypeId: workTypeId || null,
+      shade: shade || null,
+      shadeId: shadeId || null,
+      totalAmount: computedTotal ? String(computedTotal) : null,
+      amountPaid: null,
+      stages: normalizedStages as unknown as typeof labOrders.$inferInsert.stages,
       status: 'PENDING',
       attachmentFileIds: [],
       createdAt: new Date(),

@@ -27,6 +27,12 @@ export const labOrders = table('lab_orders', {
   orderDate: timestamp('order_date', { withTimezone: true }).defaultNow().notNull(),
   overallDueDate: timestamp('overall_due_date', { withTimezone: true }),
   workDescription: text('work_description').notNull(),
+  workType: text('work_type'),
+  workTypeId: text('work_type_id'),
+  shade: text('shade'),
+  shadeId: text('shade_id'),
+  totalAmount: text('total_amount'),
+  amountPaid: text('amount_paid'),
   stages: jsonb('stages')
     .$type<
       Array<{
@@ -39,6 +45,8 @@ export const labOrders = table('lab_orders', {
         completedBy: string | null;
         completedByName: string | null;
         notes: string | null;
+        price: string | null;
+        templateId: string | null;
       }>
     >()
     .default([]),
