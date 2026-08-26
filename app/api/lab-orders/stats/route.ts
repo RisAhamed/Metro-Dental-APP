@@ -13,12 +13,16 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
   const clinicId = searchParams.get('clinicId');
+  const labId = searchParams.get('labId');
+  const status = searchParams.get('status');
   const fromDate = searchParams.get('from');
   const toDate = searchParams.get('to');
 
   try {
     const conditions = [];
     if (clinicId) conditions.push(eq(labOrders.clinicId, clinicId));
+    if (labId) conditions.push(eq(labOrders.labId, labId));
+    if (status) conditions.push(eq(labOrders.status, status as typeof labOrders.$inferSelect.status));
 
     const allOrders = await db
       .select()

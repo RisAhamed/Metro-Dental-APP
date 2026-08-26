@@ -46,6 +46,8 @@ export default function LabOrdersPage() {
   const [orders, setOrders] = useState<LabOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('all');
+  const [labFilter, setLabFilter] = useState('all');
+  const [labs, setLabs] = useState<Array<{ labId: string; name: string }>>([]);
   const [stats, setStats] = useState<Stats | null>(null);
 
   const clinicId = (sessionClaims?.primaryClinicId as string) || 'clinic_a';
@@ -55,12 +57,32 @@ export default function LabOrdersPage() {
 
   useEffect(() => {
     let cancelled = false;
+    const loadLabs = async () => {
+      try {
+        const res = await fetch('/api/labs?active=true');
+        const data = await res.json();
+        if (!cancelled) setLabs(data.labs || []);
+      } catch (error) {
+        console.error('Error fetching labs:', error);
+      }
+    };
+    loadLabs();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
     const load = async () => {
       setLoading(true);
       try {
         let url = `/api/lab-orders?clinicId=${clinicId}`;
         if (statusFilter !== 'all') {
           url += `&status=${statusFilter}`;
+        }
+        if (labFilter !== 'all') {
+          url += `&labId=${encodeURIComponent(labFilter)}`;
         }
         const res = await fetch(url);
         const data = await res.json();
@@ -75,13 +97,16 @@ export default function LabOrdersPage() {
     return () => {
       cancelled = true;
     };
-  }, [clinicId, statusFilter]);
+  }, [clinicId, statusFilter, labFilter]);
 
   useEffect(() => {
     let cancelled = false;
     const loadStats = async () => {
       try {
-        const res = await fetch(`/api/lab-orders/stats?clinicId=${clinicId}`);
+        let url = `/api/lab-orders/stats?clinicId=${clinicId}`;
+        if (statusFilter !== 'all') url += `&status=${statusFilter}`;
+        if (labFilter !== 'all') url += `&labId=${encodeURIComponent(labFilter)}`;
+        const res = await fetch(url);
         const data = await res.json();
         if (!cancelled && !data.error) setStats(data);
       } catch (error) {
@@ -92,12 +117,29 @@ export default function LabOrdersPage() {
     return () => {
       cancelled = true;
     };
-  }, [clinicId]);
+  }, [clinicId, statusFilter, labFilter]);
 
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Lab Orders</h1>
+        <div>
+          <h1 className="text-2xl font-bold">
+            Lab Orders
+            {labFilter !== 'all' && labs.find((l) => l.labId === labFilter) && (
+              <span className="ml-2 text-lg font-normal text-gray-500">
+                — {labs.find((l) => l.labId === labFilter)?.name}
+              </span>
+            )}
+          </h1>
+          {labFilter !== 'all' && (
+            <p className="text-sm text-gray-500 mt-1">
+              Filtered by lab •{' '}
+              <button onClick={() => setLabFilter('all')} className="text-blue-600 hover:underline">
+                Clear lab filter
+              </button>
+            </p>
+          )}
+        </div>
         {isDoctor && (
           <Link
             href="/lab-orders/new"
@@ -175,23 +217,55 @@ export default function LabOrdersPage() {
         </div>
       )}
 
-      <div className="flex gap-2 mb-4">
-        {[
-          { key: 'all', label: 'All' },
-          { key: 'PENDING', label: 'Pending' },
-          { key: 'IN_PROGRESS', label: 'In Progress' },
-          { key: 'COMPLETED', label: 'Completed' },
-        ].map((f) => (
-          <button
-            key={f.key}
-            onClick={() => setStatusFilter(f.key)}
-            className={`px-3 py-1.5 text-sm rounded-md ${
-              statusFilter === f.key ? 'bg-blue-600 text-white' : 'bg-gray-100 hover:bg-gray-200'
-            }`}
+      <div className="flex flex-wrap items-center gap-3 mb-4">
+        <div className="flex gap-2">
+          {[
+            { key: 'all', label: 'All' },
+            { key: 'PENDING', label: 'Pending' },
+            { key: 'IN_PROGRESS', label: 'In Progress' },
+            { key: 'COMPLETED', label: 'Completed' },
+          ].map((f) => (
+            <button
+              key={f.key}
+              onClick={() => setStatusFilter(f.key)}
+              className={`px-3 py-1.5 text-sm rounded-md ${
+                statusFilter === f.key ? 'bg-blue-600 text-white' : 'bg-gray-100 hover:bg-gray-200'
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="h-6 w-px bg-gray-200 hidden sm:block" />
+
+        <div className="flex items-center gap-2">
+          <label className="text-sm text-gray-600 whitespace-nowrap">Lab:</label>
+          <select
+            value={labFilter}
+            onChange={(e) => setLabFilter(e.target.value)}
+            className="border border-gray-300 rounded-md px-3 py-1.5 text-sm bg-white min-w-[160px]"
           >
-            {f.label}
+            <option value="all">All Labs</option>
+            {labs.map((lab) => (
+              <option key={lab.labId} value={lab.labId}>
+                {lab.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {(statusFilter !== 'all' || labFilter !== 'all') && (
+          <button
+            onClick={() => {
+              setStatusFilter('all');
+              setLabFilter('all');
+            }}
+            className="text-sm text-gray-500 hover:text-gray-700 ml-2"
+          >
+            Clear filters
           </button>
-        ))}
+        )}
       </div>
 
       {loading ? (
