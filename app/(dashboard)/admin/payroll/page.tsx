@@ -24,6 +24,11 @@ interface PayrollRecord {
   adSundayEarning: string | null;
   adWeeklyBonusesTotal: string | null;
   adSundayTaskIncentivesTotal: string | null;
+  rcTotalFinalSalary: string | null;
+  rcTotalDaysWorked: string | null;
+  rcRegularEarning: string | null;
+  rcOvertimeEarning: string | null;
+  rcWeeklyBonusesTotal: string | null;
 }
 
 function fmt(value: string | null | undefined): string {
@@ -207,6 +212,7 @@ export default function AdminPayrollPage() {
             <tbody className="bg-white divide-y divide-gray-200">
               {records.map((p) => {
                 const isDoctor = p.userRole === 'GENERAL_DOCTOR' || p.userRole === 'CLINIC_ADMIN';
+                const isReceptionist = p.userRole === 'RECEPTIONIST';
                 return (
                   <tr key={p.payrollId} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
@@ -216,21 +222,47 @@ export default function AdminPayrollPage() {
                       {p.userRole}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {isDoctor ? fmt(p.gdTotalDaysWorked) : fmt(p.adTotalDaysWorked)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatMoney(isDoctor ? p.gdAccumulatedSalary : p.adRegularEarning)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatMoney(isDoctor ? p.gdSundayEarning : p.adSundayEarning)}
+                      {isDoctor
+                        ? fmt(p.gdTotalDaysWorked)
+                        : isReceptionist
+                          ? fmt(p.rcTotalDaysWorked)
+                          : fmt(p.adTotalDaysWorked)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {formatMoney(
-                        isDoctor ? p.gdMonthlyTargetBonus : p.adWeeklyBonusesTotal
+                        isDoctor
+                          ? p.gdAccumulatedSalary
+                          : isReceptionist
+                            ? p.rcRegularEarning
+                            : p.adRegularEarning
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {formatMoney(
+                        isDoctor
+                          ? p.gdSundayEarning
+                          : isReceptionist
+                            ? p.rcOvertimeEarning
+                            : p.adSundayEarning
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {formatMoney(
+                        isDoctor
+                          ? p.gdMonthlyTargetBonus
+                          : isReceptionist
+                            ? p.rcWeeklyBonusesTotal
+                            : p.adWeeklyBonusesTotal
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
-                      {formatMoney(isDoctor ? p.gdTotalFinalSalary : p.adTotalFinalSalary)}
+                      {formatMoney(
+                        isDoctor
+                          ? p.gdTotalFinalSalary
+                          : isReceptionist
+                            ? p.rcTotalFinalSalary
+                            : p.adTotalFinalSalary
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span

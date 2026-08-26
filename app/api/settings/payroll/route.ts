@@ -13,6 +13,10 @@ const DEFAULTS = {
   generalDoctorMonthlyTargetCap: 100000,
   assistantMonthlyBasePay: 18000,
   assistantDailyWorkHours: 8,
+  receptionistMonthlyBasePay: 15000,
+  receptionistDailyWorkHours: 8,
+  receptionistOvertimeRate: 1.5,
+  receptionistWeeklyBonus: 0,
   workingDaysPerMonth: 26,
   referralIncentiveAmount: 1500,
   weeklyAttendanceBonusAmount: 500,
@@ -34,6 +38,10 @@ function mapRow(row: typeof clinicSettings.$inferSelect): PayrollSettingsValues 
     generalDoctorMonthlyTargetCap: toNum(row.generalDoctorMonthlyTargetCap),
     assistantMonthlyBasePay: toNum(row.assistantMonthlyBasePay),
     assistantDailyWorkHours: toNum(row.assistantDailyWorkHours),
+    receptionistMonthlyBasePay: toNum(row.receptionistMonthlyBasePay),
+    receptionistDailyWorkHours: toNum(row.receptionistDailyWorkHours),
+    receptionistOvertimeRate: toNum(row.receptionistOvertimeRate),
+    receptionistWeeklyBonus: toNum(row.receptionistWeeklyBonus),
     workingDaysPerMonth: toNum(row.workingDaysPerMonth),
     referralIncentiveAmount: toNum(row.referralIncentiveAmount),
     weeklyAttendanceBonusAmount: toNum(row.weeklyAttendanceBonusAmount),
@@ -93,6 +101,12 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: 'Missing clinicId' }, { status: 400 });
   }
 
+  const allowZeroKeys = new Set([
+    'receptionistOvertimeRate',
+    'receptionistWeeklyBonus',
+    'weeklyAttendanceBonusAmount',
+  ]);
+
   const fields: Record<string, unknown> = {};
   for (const key of Object.keys(DEFAULTS) as (keyof PayrollSettingsValues)[]) {
     if (body[key] === undefined) {
@@ -104,7 +118,13 @@ export async function PUT(req: NextRequest) {
       fields[key] = DEFAULTS[key];
       continue;
     }
-    if (isNaN(value) || value <= 0) {
+    if (isNaN(value) || value < 0) {
+      return NextResponse.json(
+        { error: `${key} must be a non-negative number` },
+        { status: 400 }
+      );
+    }
+    if (value <= 0 && !allowZeroKeys.has(key)) {
       return NextResponse.json(
         { error: `${key} must be a positive number` },
         { status: 400 }
@@ -113,31 +133,17 @@ export async function PUT(req: NextRequest) {
     fields[key] = value;
   }
 
-  for (const key of ['generalDoctorDailyWorkHours', 'assistantDailyWorkHours'] as const) {
+  for (const key of ['generalDoctorDailyWorkHours', 'assistantDailyWorkHours', 'receptionistDailyWorkHours'] as const) {
     if (typeof fields[key] === 'number' && (fields[key] < 1 || fields[key] > 24)) {
       return NextResponse.json({ error: `${key} must be between 1 and 24 hours` }, { status: 400 });
     }
   }
 
   try {
-    await db
-      .insert(clinicSettings)
-      .values({
-        clinicId,
-        generalDoctorBaseDailyPay: String(fields.generalDoctorBaseDailyPay),
-        generalDoctorDailyWorkHours: String(fields.generalDoctorDailyWorkHours),
-        generalDoctorDailyRevenueTarget: String(fields.generalDoctorDailyRevenueTarget),
-        generalDoctorMonthlyRevenueTarget: String(fields.generalDoctorMonthlyRevenueTarget),
-        generalDoctorMonthlyTargetCap: String(fields.generalDoctorMonthlyTargetCap),
-        assistantMonthlyBasePay: String(fields.assistantMonthlyBasePay),
-        assistantDailyWorkHours: String(fields.assistantDailyWorkHours),
-        workingDaysPerMonth: String(fields.workingDaysPerMonth),
-        referralIncentiveAmount: String(fields.referralIncentiveAmount),
-        weeklyAttendanceBonusAmount: String(fields.weeklyAttendanceBonusAmount),
-      })
-      .onConflictDoUpdate({
-        target: clinicSettings.clinicId,
-        set: {
+      await db
+        .insert(clinicSettings)
+        .values({
+          clinicId,
           generalDoctorBaseDailyPay: String(fields.generalDoctorBaseDailyPay),
           generalDoctorDailyWorkHours: String(fields.generalDoctorDailyWorkHours),
           generalDoctorDailyRevenueTarget: String(fields.generalDoctorDailyRevenueTarget),
@@ -145,11 +151,33 @@ export async function PUT(req: NextRequest) {
           generalDoctorMonthlyTargetCap: String(fields.generalDoctorMonthlyTargetCap),
           assistantMonthlyBasePay: String(fields.assistantMonthlyBasePay),
           assistantDailyWorkHours: String(fields.assistantDailyWorkHours),
+          receptionistMonthlyBasePay: String(fields.receptionistMonthlyBasePay),
+          receptionistDailyWorkHours: String(fields.receptionistDailyWorkHours),
+          receptionistOvertimeRate: String(fields.receptionistOvertimeRate),
+          receptionistWeeklyBonus: String(fields.receptionistWeeklyBonus),
           workingDaysPerMonth: String(fields.workingDaysPerMonth),
           referralIncentiveAmount: String(fields.referralIncentiveAmount),
           weeklyAttendanceBonusAmount: String(fields.weeklyAttendanceBonusAmount),
-        },
-      });
+        })
+        .onConflictDoUpdate({
+          target: clinicSettings.clinicId,
+          set: {
+            generalDoctorBaseDailyPay: String(fields.generalDoctorBaseDailyPay),
+            generalDoctorDailyWorkHours: String(fields.generalDoctorDailyWorkHours),
+            generalDoctorDailyRevenueTarget: String(fields.generalDoctorDailyRevenueTarget),
+            generalDoctorMonthlyRevenueTarget: String(fields.generalDoctorMonthlyRevenueTarget),
+            generalDoctorMonthlyTargetCap: String(fields.generalDoctorMonthlyTargetCap),
+            assistantMonthlyBasePay: String(fields.assistantMonthlyBasePay),
+            assistantDailyWorkHours: String(fields.assistantDailyWorkHours),
+            receptionistMonthlyBasePay: String(fields.receptionistMonthlyBasePay),
+            receptionistDailyWorkHours: String(fields.receptionistDailyWorkHours),
+            receptionistOvertimeRate: String(fields.receptionistOvertimeRate),
+            receptionistWeeklyBonus: String(fields.receptionistWeeklyBonus),
+            workingDaysPerMonth: String(fields.workingDaysPerMonth),
+            referralIncentiveAmount: String(fields.referralIncentiveAmount),
+            weeklyAttendanceBonusAmount: String(fields.weeklyAttendanceBonusAmount),
+          },
+        });
 
     return NextResponse.json({
       success: true,
@@ -162,6 +190,10 @@ export async function PUT(req: NextRequest) {
         generalDoctorMonthlyTargetCap: Number(fields.generalDoctorMonthlyTargetCap),
         assistantMonthlyBasePay: Number(fields.assistantMonthlyBasePay),
         assistantDailyWorkHours: Number(fields.assistantDailyWorkHours),
+        receptionistMonthlyBasePay: Number(fields.receptionistMonthlyBasePay),
+        receptionistDailyWorkHours: Number(fields.receptionistDailyWorkHours),
+        receptionistOvertimeRate: Number(fields.receptionistOvertimeRate),
+        receptionistWeeklyBonus: Number(fields.receptionistWeeklyBonus),
         workingDaysPerMonth: Number(fields.workingDaysPerMonth),
         referralIncentiveAmount: Number(fields.referralIncentiveAmount),
         weeklyAttendanceBonusAmount: Number(fields.weeklyAttendanceBonusAmount),

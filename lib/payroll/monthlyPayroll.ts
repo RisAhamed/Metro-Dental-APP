@@ -7,6 +7,10 @@ export interface DailyPayrollEntry {
   gdDailyTargetAchieved?: boolean | null;
   adDailyEarning?: number | null;
   adHoursWorked?: number | null;
+  rcDailyEarning?: number | null;
+  rcHoursWorked?: number | null;
+  rcOvertimeHours?: number | null;
+  rcOvertimePay?: number | null;
   isSunday?: boolean | null;
 }
 
@@ -109,5 +113,42 @@ export function calcADMonthlyPayroll(
     adSundayTaskIncentivesTotal: Math.round(sundayTasks * 100) / 100,
     adTotalFinalSalary: Math.round(finalSalary * 100) / 100,
     adTotalDaysWorked: dailyEntries.filter((e) => (e.adHoursWorked ?? 0) > 0).length,
+  };
+}
+
+export interface RCMonthlyResult {
+  rcRegularEarning: number;
+  rcOvertimeEarning: number;
+  rcWeeklyBonusesTotal: number;
+  rcTotalFinalSalary: number;
+  rcTotalDaysWorked: number;
+}
+
+export function calcRCMonthlyPayroll(
+  dailyEntries: DailyPayrollEntry[],
+  incentiveRecords: Incentive[],
+  settings: PayrollSettings
+): RCMonthlyResult {
+  void settings;
+  const weeklyBonuses = incentiveRecords
+    .filter((r) => r.type === 'RC_WEEKLY_BONUS')
+    .reduce((sum, r) => sum + (r.amount ?? 0), 0);
+  const regularEarning = dailyEntries
+    .filter((e) => !e.isSunday)
+    .reduce((sum, e) => sum + (e.rcDailyEarning ?? 0), 0);
+  const sundayEarning = dailyEntries
+    .filter((e) => e.isSunday)
+    .reduce((sum, e) => sum + (e.rcDailyEarning ?? 0), 0);
+  const overtimeEarning = dailyEntries
+    .reduce((sum, e) => sum + (e.rcOvertimePay ?? 0), 0);
+
+  const finalSalary = regularEarning + sundayEarning + overtimeEarning + weeklyBonuses;
+
+  return {
+    rcRegularEarning: Math.round(regularEarning * 100) / 100,
+    rcOvertimeEarning: Math.round(overtimeEarning * 100) / 100,
+    rcWeeklyBonusesTotal: Math.round(weeklyBonuses * 100) / 100,
+    rcTotalFinalSalary: Math.round(finalSalary * 100) / 100,
+    rcTotalDaysWorked: dailyEntries.filter((e) => (e.rcHoursWorked ?? 0) > 0).length,
   };
 }

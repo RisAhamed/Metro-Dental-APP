@@ -13,6 +13,10 @@ const DEFAULT_SETTINGS = {
   generalDoctorMonthlyTargetCap: 100000,
   assistantMonthlyBasePay: 18000,
   assistantDailyWorkHours: 8,
+  receptionistMonthlyBasePay: 15000,
+  receptionistDailyWorkHours: 8,
+  receptionistOvertimeRate: 1.5,
+  receptionistWeeklyBonus: 0,
   workingDaysPerMonth: 26,
   referralIncentiveAmount: 1500,
   weeklyAttendanceBonusAmount: 500,
@@ -31,6 +35,13 @@ const GENERAL_DOCTOR_FIELDS: { key: SettingsKey; label: string; prefix?: string;
 const ASSISTANT_FIELDS: { key: SettingsKey; label: string; prefix?: string; hint?: string }[] = [
   { key: 'assistantMonthlyBasePay', label: 'Monthly Base Pay', prefix: '₹' },
   { key: 'assistantDailyWorkHours', label: 'Daily Work Hours', hint: 'hours' },
+];
+
+const RECEPTIONIST_FIELDS: { key: SettingsKey; label: string; prefix?: string; hint?: string }[] = [
+  { key: 'receptionistMonthlyBasePay', label: 'Monthly Base Pay', prefix: '₹' },
+  { key: 'receptionistDailyWorkHours', label: 'Daily Work Hours', hint: 'hours' },
+  { key: 'receptionistOvertimeRate', label: 'Overtime Rate', hint: '× hourly rate (0 to disable)' },
+  { key: 'receptionistWeeklyBonus', label: 'Weekly Attendance Bonus', prefix: '₹', hint: '0 to disable' },
 ];
 
 const COMMON_FIELDS: { key: SettingsKey; label: string; prefix?: string; hint?: string }[] = [
@@ -190,6 +201,22 @@ export default function PayrollSettingsPage() {
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Assistant Doctors</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {ASSISTANT_FIELDS.map((f) => (
+            <Field
+              key={f.key}
+              label={f.label}
+              prefix={f.prefix}
+              hint={f.hint}
+              value={values[f.key] ?? ''}
+              onChange={(v) => setValue(f.key, v)}
+            />
+          ))}
+        </div>
+      </div>
+
+      <div className="bg-white rounded-lg shadow p-6">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">Receptionists</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {RECEPTIONIST_FIELDS.map((f) => (
             <Field
               key={f.key}
               label={f.label}

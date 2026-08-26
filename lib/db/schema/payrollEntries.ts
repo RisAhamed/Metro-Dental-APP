@@ -25,6 +25,11 @@ export const payrollEntries = table('payroll_entries', {
   adIsDeducted: boolean('ad_is_deducted').default(false),
   adSundayIncentives: numeric('ad_sunday_incentives', { precision: 10, scale: 2 }).default('0'),
   adSundayTasksCount: numeric('ad_sunday_tasks_count', { precision: 4, scale: 0 }).default('0'),
+  // Receptionist fields
+  rcHoursWorked: numeric('rc_hours_worked', { precision: 5, scale: 2 }),
+  rcDailyEarning: numeric('rc_daily_earning', { precision: 10, scale: 2 }),
+  rcOvertimeHours: numeric('rc_overtime_hours', { precision: 5, scale: 2 }).default('0'),
+  rcOvertimePay: numeric('rc_overtime_pay', { precision: 10, scale: 2 }).default('0'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });

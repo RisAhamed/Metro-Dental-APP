@@ -19,6 +19,11 @@ interface PayrollRecord {
   adSundayEarning: string | null;
   adWeeklyBonusesTotal: string | null;
   adSundayTaskIncentivesTotal: string | null;
+  rcTotalFinalSalary: string | null;
+  rcTotalDaysWorked: string | null;
+  rcRegularEarning: string | null;
+  rcOvertimeEarning: string | null;
+  rcWeeklyBonusesTotal: string | null;
 }
 
 function fmt(value: string | null | undefined): string {
@@ -58,6 +63,7 @@ export default function MyPayrollPage() {
 
   const role = payroll?.userRole || 'GENERAL_DOCTOR';
   const isDoctor = role === 'GENERAL_DOCTOR' || role === 'CLINIC_ADMIN';
+  const isReceptionist = role === 'RECEPTIONIST';
 
   const formatMoney = (value: string | null | undefined) =>
     `₹${Number(fmt(value)).toLocaleString('en-IN')}`;
@@ -113,7 +119,13 @@ export default function MyPayrollPage() {
                 <Banknote className="h-5 w-5 text-green-600" />
               </div>
               <p className="text-2xl font-bold mt-2">
-                {formatMoney(isDoctor ? payroll.gdTotalFinalSalary : payroll.adTotalFinalSalary)}
+                {formatMoney(
+                  isDoctor
+                    ? payroll.gdTotalFinalSalary
+                    : isReceptionist
+                      ? payroll.rcTotalFinalSalary
+                      : payroll.adTotalFinalSalary
+                )}
               </p>
             </div>
             <div className="bg-white rounded-lg shadow p-4">
@@ -122,7 +134,11 @@ export default function MyPayrollPage() {
                 <Calendar className="h-5 w-5 text-blue-600" />
               </div>
               <p className="text-2xl font-bold mt-2">
-                {isDoctor ? fmt(payroll.gdTotalDaysWorked) : fmt(payroll.adTotalDaysWorked)}
+                {isDoctor
+                  ? fmt(payroll.gdTotalDaysWorked)
+                  : isReceptionist
+                    ? fmt(payroll.rcTotalDaysWorked)
+                    : fmt(payroll.adTotalDaysWorked)}
               </p>
             </div>
             <div className="bg-white rounded-lg shadow p-4">
@@ -157,6 +173,18 @@ export default function MyPayrollPage() {
                     <span>Total</span>
                     <span className="text-green-600">
                       {formatMoney(payroll.gdTotalFinalSalary)}
+                    </span>
+                  </div>
+                </>
+              ) : isReceptionist ? (
+                <>
+                  <Row label="Regular Earnings" value={formatMoney(payroll.rcRegularEarning)} />
+                  <Row label="Overtime Pay" value={formatMoney(payroll.rcOvertimeEarning)} />
+                  <Row label="Weekly Bonuses" value={formatMoney(payroll.rcWeeklyBonusesTotal)} />
+                  <div className="flex justify-between pt-2 font-bold text-lg border-t border-gray-200">
+                    <span>Total</span>
+                    <span className="text-green-600">
+                      {formatMoney(payroll.rcTotalFinalSalary)}
                     </span>
                   </div>
                 </>

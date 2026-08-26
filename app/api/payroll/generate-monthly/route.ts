@@ -8,7 +8,7 @@ import { users } from '@/lib/db/schema/users';
 import { clinicSettings } from '@/lib/db/schema/clinicSettings';
 import { isSuperAdmin } from '@/lib/auth/claims';
 import { eq, and, sql } from 'drizzle-orm';
-import { calcGDMonthlyPayroll, calcADMonthlyPayroll } from '@/lib/payroll/monthlyPayroll';
+import { calcGDMonthlyPayroll, calcADMonthlyPayroll, calcRCMonthlyPayroll } from '@/lib/payroll/monthlyPayroll';
 import type { PayrollSettings } from '@/lib/payroll/doctorPayroll';
 import type { DailyPayrollEntry, Incentive } from '@/lib/payroll/monthlyPayroll';
 
@@ -60,6 +60,10 @@ export async function POST(req: NextRequest) {
           generalDoctorMonthlyTargetCap: toNum(row.generalDoctorMonthlyTargetCap),
           assistantMonthlyBasePay: toNum(row.assistantMonthlyBasePay),
           assistantDailyWorkHours: toNum(row.assistantDailyWorkHours),
+          receptionistMonthlyBasePay: toNum(row.receptionistMonthlyBasePay),
+          receptionistDailyWorkHours: toNum(row.receptionistDailyWorkHours),
+          receptionistOvertimeRate: toNum(row.receptionistOvertimeRate),
+          receptionistWeeklyBonus: toNum(row.receptionistWeeklyBonus),
           workingDaysPerMonth: toNum(row.workingDaysPerMonth),
           referralIncentiveAmount: toNum(row.referralIncentiveAmount),
           weeklyAttendanceBonusAmount: toNum(row.weeklyAttendanceBonusAmount),
@@ -72,6 +76,10 @@ export async function POST(req: NextRequest) {
           generalDoctorMonthlyTargetCap: 100000,
           assistantMonthlyBasePay: 18000,
           assistantDailyWorkHours: 8,
+          receptionistMonthlyBasePay: 15000,
+          receptionistDailyWorkHours: 8,
+          receptionistOvertimeRate: 1.5,
+          receptionistWeeklyBonus: 0,
           workingDaysPerMonth: 26,
           referralIncentiveAmount: 1500,
           weeklyAttendanceBonusAmount: 500,
@@ -84,7 +92,7 @@ export async function POST(req: NextRequest) {
         and(
           eq(users.isActive, true),
           eq(users.primaryClinicId, clinicId),
-          sql`${users.role} IN ('GENERAL_DOCTOR', 'CLINIC_ADMIN', 'ASSISTANT_DOCTOR')`
+          sql`${users.role} IN ('GENERAL_DOCTOR', 'CLINIC_ADMIN', 'ASSISTANT_DOCTOR', 'RECEPTIONIST')`
         )
       );
 
@@ -122,6 +130,10 @@ export async function POST(req: NextRequest) {
         gdDailyTargetAchieved: e.gdDailyTargetAchieved ?? false,
         adDailyEarning: toNum(e.adDailyEarning),
         adHoursWorked: toNum(e.adHoursWorked),
+        rcDailyEarning: toNum(e.rcDailyEarning),
+        rcHoursWorked: toNum(e.rcHoursWorked),
+        rcOvertimeHours: toNum(e.rcOvertimeHours),
+        rcOvertimePay: toNum(e.rcOvertimePay),
         isSunday: e.isSunday ?? false,
       }));
 
@@ -167,6 +179,15 @@ export async function POST(req: NextRequest) {
           adSundayTaskIncentivesTotal: String(result.adSundayTaskIncentivesTotal),
           adTotalFinalSalary: String(result.adTotalFinalSalary),
           adTotalDaysWorked: String(result.adTotalDaysWorked),
+        };
+      } else if (staffMember.role === 'RECEPTIONIST') {
+        const result = calcRCMonthlyPayroll(dailyEntries, incentiveList, settings);
+        summary = {
+          rcRegularEarning: String(result.rcRegularEarning),
+          rcOvertimeEarning: String(result.rcOvertimeEarning),
+          rcWeeklyBonusesTotal: String(result.rcWeeklyBonusesTotal),
+          rcTotalFinalSalary: String(result.rcTotalFinalSalary),
+          rcTotalDaysWorked: String(result.rcTotalDaysWorked),
         };
       }
 

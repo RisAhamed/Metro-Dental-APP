@@ -29,6 +29,12 @@ export const monthlyPayroll = table('monthly_payroll', {
   adSundayTaskIncentivesTotal: numeric('ad_sunday_task_incentives_total', { precision: 12, scale: 2 }).default('0'),
   adTotalFinalSalary: numeric('ad_total_final_salary', { precision: 12, scale: 2 }).default('0'),
   adTotalDaysWorked: numeric('ad_total_days_worked', { precision: 4, scale: 0 }).default('0'),
+  // Receptionist summary
+  rcRegularEarning: numeric('rc_regular_earning', { precision: 12, scale: 2 }).default('0'),
+  rcOvertimeEarning: numeric('rc_overtime_earning', { precision: 12, scale: 2 }).default('0'),
+  rcWeeklyBonusesTotal: numeric('rc_weekly_bonuses_total', { precision: 12, scale: 2 }).default('0'),
+  rcTotalFinalSalary: numeric('rc_total_final_salary', { precision: 12, scale: 2 }).default('0'),
+  rcTotalDaysWorked: numeric('rc_total_days_worked', { precision: 4, scale: 0 }).default('0'),
 });
 
 export type MonthlyPayroll = typeof monthlyPayroll.$inferSelect;

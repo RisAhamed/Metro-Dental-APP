@@ -10,6 +10,11 @@ export const clinicSettings = table('clinic_settings', {
   generalDoctorMonthlyTargetCap: numeric('general_doctor_monthly_target_cap', { precision: 10, scale: 2 }).default('100000'),
   assistantMonthlyBasePay: numeric('assistant_monthly_base_pay', { precision: 10, scale: 2 }).default('18000'),
   assistantDailyWorkHours: numeric('assistant_daily_work_hours', { precision: 4, scale: 1 }).default('8'),
+  // Receptionist fields
+  receptionistMonthlyBasePay: numeric('receptionist_monthly_base_pay', { precision: 10, scale: 2 }).default('15000'),
+  receptionistDailyWorkHours: numeric('receptionist_daily_work_hours', { precision: 4, scale: 1 }).default('8'),
+  receptionistOvertimeRate: numeric('receptionist_overtime_rate', { precision: 4, scale: 1 }).default('1.5'),
+  receptionistWeeklyBonus: numeric('receptionist_weekly_bonus', { precision: 10, scale: 2 }).default('0'),
   workingDaysPerMonth: numeric('working_days_per_month', { precision: 2, scale: 0 }).default('26'),
   referralIncentiveAmount: numeric('referral_incentive_amount', { precision: 10, scale: 2 }).default('1500'),
   weeklyAttendanceBonusAmount: numeric('weekly_attendance_bonus_amount', { precision: 10, scale: 2 }).default('500'),

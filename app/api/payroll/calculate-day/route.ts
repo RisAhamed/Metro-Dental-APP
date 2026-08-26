@@ -9,6 +9,7 @@ import { isStaff } from '@/lib/auth/claims';
 import { eq, and } from 'drizzle-orm';
 import { calcGDDayEarning } from '@/lib/payroll/doctorPayroll';
 import { calcADDayEarning } from '@/lib/payroll/assistantPayroll';
+import { calcRCDayEarning } from '@/lib/payroll/receptionistPayroll';
 import { toISTDateString } from '@/lib/utils/attendance';
 import type { PayrollSettings } from '@/lib/payroll/doctorPayroll';
 
@@ -77,6 +78,10 @@ export async function POST(req: NextRequest) {
           generalDoctorMonthlyTargetCap: toNum(row.generalDoctorMonthlyTargetCap),
           assistantMonthlyBasePay: toNum(row.assistantMonthlyBasePay),
           assistantDailyWorkHours: toNum(row.assistantDailyWorkHours),
+          receptionistMonthlyBasePay: toNum(row.receptionistMonthlyBasePay),
+          receptionistDailyWorkHours: toNum(row.receptionistDailyWorkHours),
+          receptionistOvertimeRate: toNum(row.receptionistOvertimeRate),
+          receptionistWeeklyBonus: toNum(row.receptionistWeeklyBonus),
           workingDaysPerMonth: toNum(row.workingDaysPerMonth),
           referralIncentiveAmount: toNum(row.referralIncentiveAmount),
           weeklyAttendanceBonusAmount: toNum(row.weeklyAttendanceBonusAmount),
@@ -89,6 +94,10 @@ export async function POST(req: NextRequest) {
           generalDoctorMonthlyTargetCap: 100000,
           assistantMonthlyBasePay: 18000,
           assistantDailyWorkHours: 8,
+          receptionistMonthlyBasePay: 15000,
+          receptionistDailyWorkHours: 8,
+          receptionistOvertimeRate: 1.5,
+          receptionistWeeklyBonus: 0,
           workingDaysPerMonth: 26,
           referralIncentiveAmount: 1500,
           weeklyAttendanceBonusAmount: 500,
@@ -114,6 +123,7 @@ export async function POST(req: NextRequest) {
 
     let gdData: Record<string, unknown> = {};
     let adData: Record<string, unknown> = {};
+    let rcData: Record<string, unknown> = {};
 
     if (user.role === 'GENERAL_DOCTOR' || user.role === 'CLINIC_ADMIN') {
       const result = calcGDDayEarning({
@@ -146,12 +156,26 @@ export async function POST(req: NextRequest) {
         adSundayIncentives: '0',
         adSundayTasksCount: '0',
       };
+    } else if (user.role === 'RECEPTIONIST') {
+      const result = calcRCDayEarning({
+        hoursWorked,
+        date: dateObj,
+        settings,
+      });
+      dailyEarning = result.earning;
+      rcData = {
+        rcHoursWorked: String(hoursWorked),
+        rcDailyEarning: String(result.earning),
+        rcOvertimeHours: String(result.overtimeHours),
+        rcOvertimePay: String(result.overtimePay),
+      };
     }
 
     const values = {
       ...baseData,
       ...gdData,
       ...adData,
+      ...rcData,
       totalDayEarning: String(dailyEarning),
     };
 

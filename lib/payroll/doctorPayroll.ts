@@ -6,6 +6,10 @@ export interface PayrollSettings {
   generalDoctorMonthlyTargetCap: number;
   assistantMonthlyBasePay: number;
   assistantDailyWorkHours: number;
+  receptionistMonthlyBasePay: number;
+  receptionistDailyWorkHours: number;
+  receptionistOvertimeRate: number;
+  receptionistWeeklyBonus: number;
   workingDaysPerMonth: number;
   referralIncentiveAmount: number;
   weeklyAttendanceBonusAmount: number;
