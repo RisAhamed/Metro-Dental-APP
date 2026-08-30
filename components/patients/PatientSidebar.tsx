@@ -14,6 +14,7 @@ import {
   Wallet,
   Scale,
   Stethoscope,
+  X,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -69,6 +70,7 @@ interface PatientSidebarProps {
   genderAge: string;
   activeSection: PatientSection;
   onSectionChange: (section: PatientSection) => void;
+  onClose?: () => void;
 }
 
 export function PatientSidebar({
@@ -77,6 +79,7 @@ export function PatientSidebar({
   genderAge,
   activeSection,
   onSectionChange,
+  onClose,
 }: PatientSidebarProps) {
   return (
     <>
@@ -86,10 +89,19 @@ export function PatientSidebar({
           <div className="h-8 w-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center flex-shrink-0">
             <User className="h-4 w-4" />
           </div>
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <p className="font-semibold text-gray-900 text-sm truncate">{patientName}</p>
             <p className="text-xs text-gray-500 truncate">ID: {patientId} • {genderAge}</p>
           </div>
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+              aria-label="Close sidebar"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
         </div>
         <div className="overflow-x-auto scrollbar-thin">
           <nav className="flex gap-1 p-2 whitespace-nowrap">
@@ -115,8 +127,20 @@ export function PatientSidebar({
       {/* Desktop: vertical sidebar */}
       <div className="hidden lg:block w-56 flex-shrink-0 bg-white rounded-lg shadow h-fit sticky top-6">
         <div className="p-4 border-b border-gray-100">
-          <div className="h-10 w-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center mb-2">
-            <User className="h-5 w-5" />
+          <div className="flex items-start justify-between">
+            <div className="h-10 w-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center mb-2">
+              <User className="h-5 w-5" />
+            </div>
+            {onClose && (
+              <button
+                onClick={onClose}
+                className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors mt-0.5"
+                title="Hide sidebar"
+                aria-label="Hide sidebar"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
           </div>
           <p className="font-semibold text-gray-900 truncate">{patientName}</p>
           <p className="text-xs text-gray-500">ID: {patientId}</p>

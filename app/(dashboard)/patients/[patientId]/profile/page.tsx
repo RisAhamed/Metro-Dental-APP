@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@clerk/nextjs';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { Menu } from 'lucide-react';
 import {
   Phone,
   Mail,
@@ -26,7 +27,7 @@ import {
   type CompletedProcedure,
 } from '@/components/patients/PatientCompletedProcedures';
 import { VitalSignsDisplay } from '@/components/patients/VitalSignsDisplay';
-import { PatientClinicalNotes } from '@/components/patients/PatientClinicalNotes';
+import ClinicalNoteList from '@/components/clinical/ClinicalNoteList';
 import { PatientTimeline, type TimelineEntry } from '@/components/patients/PatientTimeline';
 import { PatientFiles } from '@/components/patients/PatientFiles';
 import { PatientPrescriptions } from '@/components/patients/PatientPrescriptions';
@@ -235,6 +236,9 @@ export default function PatientProfilePage() {
   const [showAppointmentModal, setShowAppointmentModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingVisit, setEditingVisit] = useState<EditableVisit | null>(null);
+  const [showPatientSidebar, setShowPatientSidebar] = useState(
+    () => sectionFromTab(searchParams.get('tab')) !== 'CLINICAL_NOTES'
+  );
 
   const patientId = Array.isArray(params.patientId)
     ? params.patientId[0]
@@ -600,10 +604,12 @@ export default function PatientProfilePage() {
 
       case 'CLINICAL_NOTES':
         return (
-          <PatientClinicalNotes
-            visits={visits}
-            loading={sectionLoading}
-            onEdit={canFullEdit ? (v) => setEditingVisit(v) : undefined}
+          <ClinicalNoteList
+            patientId={patientId}
+            clinicId={clinicId}
+            doctorId={String(sessionClaims?.userId || '')}
+            doctorName={String(sessionClaims?.name || '')}
+            userRole={role}
           />
         );
 
@@ -878,15 +884,33 @@ export default function PatientProfilePage() {
 
       {/* Sidebar + Section content */}
       <div className="flex flex-col lg:flex-row gap-4 sm:gap-5 items-start">
-        <PatientSidebar
-          patientName={patient.name}
-          patientId={patient.patientId}
-          genderAge={genderAge}
-          activeSection={activeSection}
-          onSectionChange={(s) => setActiveSection(s)}
-        />
+        {showPatientSidebar && (
+          <PatientSidebar
+            patientName={patient.name}
+            patientId={patient.patientId}
+            genderAge={genderAge}
+            activeSection={activeSection}
+            onSectionChange={(s) => {
+              setActiveSection(s);
+              if (s === 'CLINICAL_NOTES') {
+                setShowPatientSidebar(false);
+              }
+            }}
+            onClose={() => setShowPatientSidebar(false)}
+          />
+        )}
 
-        <div className="flex-1 min-w-0 w-full bg-white rounded-lg shadow p-4 sm:p-6 min-h-[300px] overflow-hidden">
+        <div className="flex-1 min-w-0 w-full bg-white rounded-lg shadow p-4 sm:p-6 min-h-[300px] overflow-hidden relative">
+          {!showPatientSidebar && (
+            <button
+              onClick={() => setShowPatientSidebar(true)}
+              className="absolute top-3 left-3 z-10 p-2 bg-white rounded-md shadow-md border border-gray-200 hover:bg-gray-50 transition-colors"
+              aria-label="Show patient menu"
+              title="Show patient menu"
+            >
+              <Menu className="h-5 w-5 text-gray-700" />
+            </button>
+          )}
           {renderSection()}
         </div>
       </div>

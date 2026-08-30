@@ -40,3 +40,5 @@ export * from './proceduresCatalog';
 export * from './patientFiles';
 export * from './prescriptions';
 export * from './invoices';
+export * from './clinicalNotes';
+export * from './clinicalNoteLookups';

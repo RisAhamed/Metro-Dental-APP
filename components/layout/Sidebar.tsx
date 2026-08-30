@@ -22,9 +22,9 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useMobile } from '@/hooks/useMobile';
+import { useSidebarCollapse } from './SidebarContext';
 import type { LucideIcon } from 'lucide-react';
 
-// Role-based menus (hardcoded)
 const ROLE_MENUS: Record<string, { label: string; href: string; icon: LucideIcon }[]> = {
   SUPER_ADMIN: [
     { label: 'Dashboard', href: '/admin', icon: LayoutDashboard },
@@ -92,6 +92,8 @@ export function Sidebar() {
   const isMobile = useMobile();
   const [isOpen, setIsOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const { forceCollapsed } = useSidebarCollapse();
+  const isCollapsed = collapsed || forceCollapsed;
 
   const nav = (
     <nav className="flex-1 overflow-y-auto p-4 space-y-1">
@@ -104,17 +106,17 @@ export function Sidebar() {
             key={item.href}
             href={item.href}
             onClick={() => setIsOpen(false)}
-            title={collapsed ? item.label : undefined}
+            title={isCollapsed ? item.label : undefined}
             className={cn(
               'flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors',
-              collapsed && 'justify-center px-2',
+              isCollapsed && 'justify-center px-2',
               isActive
                 ? 'bg-blue-50 text-blue-700'
                 : 'text-gray-700 hover:bg-gray-100'
             )}
           >
             <Icon className="h-5 w-5 flex-shrink-0" />
-            {!collapsed && item.label}
+            {!isCollapsed && item.label}
           </Link>
         );
       })}
@@ -125,22 +127,22 @@ export function Sidebar() {
     <div
       className={cn(
         'p-4 border-b border-gray-200 flex items-center',
-        showCollapseToggle && collapsed ? 'justify-center px-2' : 'justify-between'
+        showCollapseToggle && isCollapsed ? 'justify-center px-2' : 'justify-between'
       )}
     >
       <h1
         className={cn(
           'font-bold text-blue-600 whitespace-nowrap',
-          showCollapseToggle && collapsed ? 'text-lg' : 'text-xl'
+          showCollapseToggle && isCollapsed ? 'text-lg' : 'text-xl'
         )}
       >
-        {showCollapseToggle && collapsed ? 'DC' : 'Dental Clinic'}
+        {showCollapseToggle && isCollapsed ? 'DC' : 'Dental Clinic'}
       </h1>
       {showCollapseToggle && (
         <button
           onClick={() => setCollapsed((c) => !c)}
-          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           className="p-1.5 rounded-md hover:bg-gray-100 text-gray-500"
         >
           <Menu className="h-5 w-5" />
@@ -190,7 +192,7 @@ export function Sidebar() {
     <aside
       className={cn(
         'bg-white border-r border-gray-200 flex flex-col h-screen transition-[width] duration-200',
-        collapsed ? 'w-16' : 'w-64'
+        isCollapsed ? 'w-16' : 'w-64'
       )}
     >
       {brand(true)}
