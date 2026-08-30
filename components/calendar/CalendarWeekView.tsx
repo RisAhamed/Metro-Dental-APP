@@ -10,7 +10,7 @@ const END_HOUR = 21; // 9:00 PM
 const SLOT_MINUTES = 30;
 const SLOT_HEIGHT = 44;
 const TOTAL_SLOTS = ((END_HOUR - START_HOUR) * 60) / SLOT_MINUTES;
-const DAY_HEADERS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const DAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 function slotLabel(hour: number): string {
   const h12 = hour % 12 === 0 ? 12 : hour % 12;
@@ -78,7 +78,7 @@ export function CalendarWeekView({
       {/* Day headers */}
       <div className="flex border-b border-gray-200 bg-gray-50 flex-shrink-0 overflow-x-auto">
         <div className="w-12 sm:w-16 flex-shrink-0" />
-        {days.map((day, i) => (
+        {days.map((day) => (
           <div
             key={day.toString()}
             className={`flex-1 py-1.5 sm:py-2 text-center border-l border-gray-100 first:border-l-0 min-w-[56px] sm:min-w-[120px] ${
@@ -90,8 +90,8 @@ export function CalendarWeekView({
                 isToday(day) ? 'text-blue-600' : 'text-gray-400'
               }`}
             >
-              <span className="hidden sm:inline">{DAY_HEADERS[i]}</span>
-              <span className="sm:hidden">{DAY_HEADERS[i].charAt(0)}</span>
+              <span className="hidden sm:inline">{DAY_SHORT[day.getDay()]}</span>
+              <span className="sm:hidden">{DAY_SHORT[day.getDay()].charAt(0)}</span>
             </span>
             <div
               className={`text-base sm:text-lg font-bold leading-tight ${

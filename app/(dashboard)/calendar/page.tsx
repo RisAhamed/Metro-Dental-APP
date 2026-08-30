@@ -5,7 +5,6 @@ import { useAuth } from '@clerk/nextjs';
 import { useMobile } from '@/hooks/useMobile';
 import {
   format,
-  startOfWeek,
   addDays,
   addWeeks,
   subWeeks,
@@ -308,7 +307,7 @@ export default function CalendarPage() {
     const today = new Date();
     setCurrentDate(today);
     setSelectedDate(startOfDay(today));
-    setView('day');
+    setView('week');
   };
 
   const handleMonthDateClick = (day: Date) => {
@@ -328,8 +327,7 @@ export default function CalendarPage() {
   };
 
   const weekStart = useMemo(
-    // Week starts on Sunday
-    () => startOfWeek(currentDate, { weekStartsOn: 0 }),
+    () => startOfDay(currentDate),
     [currentDate]
   );
 
@@ -609,8 +607,8 @@ function getRangeForView(view: string, date: Date): { start: Date; end: Date } {
   if (view === 'month') {
     return { start: startOfMonth(date), end: endOfMonth(date) };
   }
-  // Week starts on Sunday
-  const start = startOfDay(startOfWeek(date, { weekStartsOn: 0 }));
+  // Week starts from currentDate (today)
+  const start = startOfDay(date);
   return { start, end: addDays(start, 6) };
 }
 

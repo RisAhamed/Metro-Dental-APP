@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { X, Search } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { X, Loader2 } from 'lucide-react';
 import { useAuth } from '@clerk/nextjs';
 import type { CalendarAppointment } from './types';
 
@@ -51,6 +51,10 @@ export function AppointmentModal({
   const [loading, setLoading] = useState(false);
   const [searchPatient, setSearchPatient] = useState('');
   const [patients, setPatients] = useState<Patient[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(
     prefill?.patient
       ? {
@@ -151,16 +155,46 @@ export function AppointmentModal({
     };
   }, [clinicId, doctors.length]);
 
-  const handleSearchPatient = async () => {
-    if (searchPatient.length < 2) return;
+  const handleSearchPatient = async (query: string) => {
+    if (query.length < 2) {
+      setPatients([]);
+      setShowDropdown(false);
+      return;
+    }
+    setSearching(true);
     try {
-      const res = await fetch(`/api/patients?search=${encodeURIComponent(searchPatient)}&limit=10`);
+      const res = await fetch(`/api/patients?search=${encodeURIComponent(query)}&limit=10`);
       const data = await res.json();
       setPatients(data.patients || []);
+      setShowDropdown(true);
     } catch (error) {
       console.error('Error searching patients:', error);
+    } finally {
+      setSearching(false);
     }
   };
+
+  const debouncedSearch = useCallback((query: string) => {
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => handleSearchPatient(query), 300);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (searchTimer.current) clearTimeout(searchTimer.current);
+    };
+  }, []);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleSelectPatient = (patient: Patient) => {
     setSelectedPatient(patient);
@@ -173,6 +207,7 @@ export function AppointmentModal({
     });
     setSearchPatient('');
     setPatients([]);
+    setShowDropdown(false);
   };
 
   const handleSubmitAppointment = async (e: React.FormEvent) => {
@@ -488,24 +523,26 @@ export function AppointmentModal({
                     </div>
                   ) : (
                     <>
-                      <div className="mt-1 relative">
-                        <div className="flex gap-2">
+                      <div className="mt-1 relative" ref={dropdownRef}>
+                        <div className="relative">
                           <input
                             type="text"
                             placeholder="Search by name, ID, or phone..."
                             value={searchPatient}
-                            onChange={(e) => setSearchPatient(e.target.value)}
-                            className="flex-1 border border-gray-300 rounded-md px-3 py-2"
+                            onChange={(e) => {
+                              setSearchPatient(e.target.value);
+                              debouncedSearch(e.target.value);
+                            }}
+                            onFocus={() => {
+                              if (patients.length > 0) setShowDropdown(true);
+                            }}
+                            className="w-full border border-gray-300 rounded-md px-3 py-2 pr-8"
                           />
-                          <button
-                            type="button"
-                            onClick={handleSearchPatient}
-                            className="px-4 py-2 bg-gray-100 rounded-md hover:bg-gray-200"
-                          >
-                            <Search className="h-4 w-4" />
-                          </button>
+                          {searching && (
+                            <Loader2 className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 animate-spin" />
+                          )}
                         </div>
-                        {patients.length > 0 && (
+                        {showDropdown && patients.length > 0 && (
                           <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-40 overflow-y-auto">
                             {patients.map((p) => (
                               <button
@@ -517,6 +554,11 @@ export function AppointmentModal({
                                 {p.name} ({p.patientId}) - {p.primaryPhone}
                               </button>
                             ))}
+                          </div>
+                        )}
+                        {showDropdown && !searching && patients.length === 0 && searchPatient.length >= 2 && (
+                          <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg px-4 py-3 text-sm text-gray-500">
+                            No patients found
                           </div>
                         )}
                       </div>
