@@ -50,50 +50,86 @@ interface InvoicePrintProps {
   invoice: InvoiceData;
   patient?: PatientInfo | null;
   clinic?: ClinicInfo | null;
+  pdfMode?: boolean;
+}
+
+const INVOICE_STYLES = `
+  @media print {
+    @page { size: A4; margin: 12mm; }
+    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; background: white !important; }
+    body * { visibility: hidden; }
+    #invoice-print-area, #invoice-print-area * { visibility: visible; }
+    #invoice-print-area { position: absolute; left: 0; top: 0; width: 100%; box-shadow: none !important; border: none !important; margin: 0 !important; }
+    .no-print { display: none !important; }
+  }
+  .invoice-pdf-table { table-layout: fixed; width: 100%; }
+  .invoice-pdf-table th,
+  .invoice-pdf-table td { overflow-wrap: anywhere; word-break: break-word; }
+  .invoice-pdf-totals { max-width: 280px; }
+`;
+
+function formatCurrency(value: string | number) {
+  return `₹${Number(value || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function formatCurrencyShort(value: string | number) {
+  return `₹${Number(value || 0).toLocaleString('en-IN')}`;
 }
 
 export const InvoicePrint = forwardRef<HTMLDivElement, InvoicePrintProps>(
-  ({ invoice, patient, clinic }, ref) => {
+  ({ invoice, patient, clinic, pdfMode }, ref) => {
     const clinicName = clinic?.name || 'Metro Dental Clinic';
     const clinicAddress = clinic?.address || 'Clinic Address, Phone, Email';
     const clinicPhone = clinic?.phone;
     const clinicEmail = clinic?.email;
 
+    const contactLine = [clinicAddress, clinicPhone, clinicEmail].filter(Boolean).join(' • ');
+
     return (
       <div
         ref={ref}
         id="invoice-print-area"
-        className="bg-white text-gray-900 p-8 max-w-[800px] mx-auto print:p-0 print:shadow-none"
-        style={{ fontFamily: 'Inter, system-ui, sans-serif' }}
+        className="bg-white text-gray-900"
+        style={{
+          fontFamily: 'Inter, system-ui, sans-serif',
+          padding: pdfMode ? '32px' : undefined,
+          width: pdfMode ? '794px' : undefined,
+          boxSizing: 'border-box',
+          maxWidth: pdfMode ? '794px' : '800px',
+          margin: pdfMode ? '0' : '0 auto',
+          overflowWrap: 'anywhere',
+          wordBreak: 'break-word',
+        }}
       >
-        {/* Print styles - isolate invoice */}
-        <style>{`
-          @media print {
-            @page { size: A4; margin: 12mm; }
-            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; background: white !important; }
-            body * { visibility: hidden; }
-            #invoice-print-area, #invoice-print-area * { visibility: visible; }
-            #invoice-print-area { position: absolute; left: 0; top: 0; width: 100%; box-shadow: none !important; border: none !important; margin: 0 !important; }
-            .no-print { display: none !important; }
-          }
-        `}</style>
+        <style>{INVOICE_STYLES}</style>
 
         {/* Clinic Header */}
-        <div className="text-center border-b-2 border-gray-800 pb-4">
-          <h1 className="text-2xl font-bold tracking-wide uppercase">{clinicName}</h1>
-          <p className="text-sm text-gray-600 mt-1">
-            {[clinicAddress, clinicPhone, clinicEmail].filter(Boolean).join(' • ')}
+        <div className="text-center border-b-2 border-gray-800 pb-4" style={{ minWidth: 0 }}>
+          <h1
+            className="text-2xl font-bold tracking-wide uppercase"
+            style={{ overflowWrap: 'anywhere', wordBreak: 'break-word' }}
+          >
+            {clinicName}
+          </h1>
+          <p
+            className="text-sm text-gray-600 mt-1"
+            style={{ overflowWrap: 'anywhere', wordBreak: 'break-word' }}
+          >
+            {contactLine}
           </p>
         </div>
 
         {/* Invoice Meta */}
-        <div className="flex justify-between mt-4 text-sm">
-          <div>
-            <p>
+        <div
+          className="mt-4 text-sm"
+          style={{ display: 'flex', justifyContent: 'space-between', gap: '16px', minWidth: 0 }}
+        >
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <p style={{ overflowWrap: 'anywhere' }}>
               <span className="font-semibold">INVOICE #:</span> {invoice.invoiceNumber}
             </p>
           </div>
-          <div>
+          <div style={{ minWidth: 0, flexShrink: 0, textAlign: 'right' }}>
             <p>
               <span className="font-semibold">Date:</span>{' '}
               {new Date(invoice.invoiceDate).toLocaleDateString('en-IN', {
@@ -107,11 +143,11 @@ export const InvoicePrint = forwardRef<HTMLDivElement, InvoicePrintProps>(
 
         {/* Patient Info */}
         <div className="mt-4 border border-gray-200 rounded-md p-4 bg-gray-50/50 print:bg-white">
-          <div className="grid grid-cols-2 gap-2 text-sm">
-            <p>
+          <div className="grid grid-cols-2 gap-2 text-sm" style={{ minWidth: 0 }}>
+            <p style={{ minWidth: 0, overflowWrap: 'anywhere' }}>
               <span className="font-semibold">Patient Name:</span> {patient?.name || invoice.patientName}
             </p>
-            <p>
+            <p style={{ minWidth: 0, overflowWrap: 'anywhere' }}>
               <span className="font-semibold">Patient ID:</span> {patient?.patientId || invoice.patientId}
             </p>
             <p>
@@ -125,8 +161,15 @@ export const InvoicePrint = forwardRef<HTMLDivElement, InvoicePrintProps>(
         </div>
 
         {/* Procedures Table */}
-        <div className="mt-6">
-          <table className="w-full text-sm border-collapse">
+        <div className="mt-6" style={{ overflowX: 'auto', minWidth: 0 }}>
+          <table className="invoice-pdf-table text-sm border-collapse">
+            <colgroup>
+              <col style={{ width: '4%' }} />
+              <col style={{ width: '54%' }} />
+              <col style={{ width: '8%' }} />
+              <col style={{ width: '17%' }} />
+              <col style={{ width: '17%' }} />
+            </colgroup>
             <thead>
               <tr className="bg-gray-800 text-white">
                 <th className="py-2 px-3 text-left text-xs font-semibold">#</th>
@@ -138,17 +181,35 @@ export const InvoicePrint = forwardRef<HTMLDivElement, InvoicePrintProps>(
             </thead>
             <tbody>
               {invoice.procedures.map((proc, idx) => (
-                <tr key={`${proc.procedureId}-${idx}`} className="border-b border-gray-200">
+                <tr
+                  key={`${proc.procedureId}-${idx}`}
+                  className="border-b border-gray-200"
+                  style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}
+                >
                   <td className="py-2.5 px-3 text-sm">{idx + 1}</td>
-                  <td className="py-2.5 px-3">
-                    <p className="text-sm font-medium">{proc.procedureName}</p>
+                  <td className="py-2.5 px-3" style={{ minWidth: 0 }}>
+                    <p
+                      className="text-sm font-medium"
+                      style={{ overflowWrap: 'anywhere', wordBreak: 'break-word' }}
+                    >
+                      {proc.procedureName}
+                    </p>
                     {proc.toothNumbers && proc.toothNumbers.length > 0 && (
-                      <p className="text-xs text-gray-500">Teeth: [{proc.toothNumbers.join('] [')}]</p>
+                      <p
+                        className="text-xs text-gray-500"
+                        style={{ overflowWrap: 'anywhere', wordBreak: 'break-word' }}
+                      >
+                        Teeth: {proc.toothNumbers.map((t) => `[${t}]`).join(' ')}
+                      </p>
                     )}
                   </td>
                   <td className="py-2.5 px-3 text-center text-sm">{proc.qty}</td>
-                  <td className="py-2.5 px-3 text-right text-sm">₹{Number(proc.unitCost).toLocaleString('en-IN')}</td>
-                  <td className="py-2.5 px-3 text-right text-sm font-semibold">₹{Number(proc.total).toLocaleString('en-IN')}</td>
+                  <td className="py-2.5 px-3 text-right text-sm" style={{ whiteSpace: 'nowrap' }}>
+                    {formatCurrencyShort(proc.unitCost)}
+                  </td>
+                  <td className="py-2.5 px-3 text-right text-sm font-semibold" style={{ whiteSpace: 'nowrap' }}>
+                    {formatCurrencyShort(proc.total)}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -156,41 +217,63 @@ export const InvoicePrint = forwardRef<HTMLDivElement, InvoicePrintProps>(
         </div>
 
         {/* Totals */}
-        <div className="mt-4 flex justify-end">
-          <div className="w-64 space-y-1 text-sm">
-            <div className="flex justify-between py-1">
+        <div className="mt-4" style={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <div className="invoice-pdf-totals space-y-1 text-sm" style={{ width: '100%', maxWidth: '280px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
               <span className="text-gray-600">SUBTOTAL:</span>
-              <span className="font-medium">₹{Number(invoice.subtotal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+              <span className="font-medium">{formatCurrency(invoice.subtotal)}</span>
             </div>
-            <div className="flex justify-between py-1">
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
               <span className="text-gray-600">DISCOUNT:</span>
-              <span className="font-medium">₹{Number(invoice.totalDiscount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+              <span className="font-medium">{formatCurrency(invoice.totalDiscount)}</span>
             </div>
-            <div className="flex justify-between py-2 border-t-2 border-gray-800 font-bold text-base">
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                padding: '8px 0',
+                borderTop: '2px solid #1f2937',
+                fontWeight: 700,
+                fontSize: '1rem',
+              }}
+            >
               <span>GRAND TOTAL:</span>
-              <span>₹{Number(invoice.grandTotal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+              <span>{formatCurrency(invoice.grandTotal)}</span>
             </div>
-            <div className="flex justify-between py-1 text-xs">
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '0.75rem' }}>
               <span className="text-gray-600">Amount Paid:</span>
-              <span>₹{Number(invoice.amountPaid).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+              <span>{formatCurrency(invoice.amountPaid)}</span>
             </div>
-            <div className="flex justify-between py-1 text-xs font-semibold">
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '0.75rem', fontWeight: 600 }}>
               <span className="text-gray-800">Balance Due:</span>
               <span className="text-red-600">
-                ₹{(Number(invoice.grandTotal) - Number(invoice.amountPaid)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                {formatCurrency(Number(invoice.grandTotal) - Number(invoice.amountPaid))}
               </span>
             </div>
           </div>
         </div>
 
         {/* Signature & Stamp */}
-        <div className="mt-12 flex justify-between items-end">
-          <div className="text-center">
-            <div className="w-40 h-12 border-b border-gray-400 mb-1"></div>
+        <div
+          className="mt-12"
+          style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', minWidth: 0 }}
+        >
+          <div className="text-center" style={{ minWidth: 0, flexShrink: 0 }}>
+            <div style={{ width: '160px', height: '48px', borderBottom: '1px solid #9ca3af', marginBottom: '4px' }}></div>
             <p className="text-xs text-gray-600">Authorized Signature</p>
           </div>
-          <div className="text-center">
-            <div className="w-32 h-16 border border-dashed border-gray-300 rounded flex items-center justify-center">
+          <div className="text-center" style={{ minWidth: 0, flexShrink: 0 }}>
+            <div
+              style={{
+                width: '128px',
+                height: '64px',
+                border: '1px dashed #d1d5db',
+                borderRadius: '4px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
               <span className="text-xs text-gray-400">Clinic Stamp</span>
             </div>
           </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, Printer, Download, CreditCard } from 'lucide-react';
 import { InvoicePrint } from '@/components/invoices/InvoicePrint';
@@ -31,6 +31,11 @@ interface InvoiceData {
   createdBy: string;
 }
 
+const A4_WIDTH_PX = 794;
+const PDF_MARGIN_MM = 12;
+const PDF_DPI = 96;
+const MM_PER_INCH = 25.4;
+
 export default function InvoiceDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -43,6 +48,7 @@ export default function InvoiceDetailPage() {
   const [updatingPayment, setUpdatingPayment] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
+  const pdfRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -67,49 +73,102 @@ export default function InvoiceDetailPage() {
     window.print();
   };
 
-  const handleDownloadPDF = async () => {
-    if (!printRef.current || !invoice) return;
+  const handleDownloadPDF = useCallback(async () => {
+    if (!pdfRef.current || !invoice) return;
     setDownloading(true);
+
     try {
       const { toPng } = await import('html-to-image');
       const { jsPDF } = await import('jspdf');
-      const imgData = await toPng(printRef.current, {
+
+      // The pdfRef is a hidden but in-flow container at fixed A4 width.
+      // html-to-image can compute its styles because it's in the DOM layout.
+      const imgData = await toPng(pdfRef.current, {
         pixelRatio: 2,
         backgroundColor: '#ffffff',
         cacheBust: true,
       });
+
+      // Load the captured image
       const img = new Image();
       img.src = imgData;
-      await new Promise<void>((resolve) => {
+      await new Promise<void>((resolve, reject) => {
         img.onload = () => resolve();
+        img.onerror = () => reject(new Error('Failed to load captured image'));
       });
+
+      // Calculate dimensions
+      const marginMM = PDF_MARGIN_MM;
+      const marginPX = (marginMM / MM_PER_INCH) * PDF_DPI;
+      const printableWidthPX = A4_WIDTH_PX - marginPX * 2;
+
+      // The image was captured at 2x pixel ratio from a 794px-wide element
+      // So img.width = 794 * 2 = 1588px
+      // Scale factor: map captured width to printable A4 width
+      const scaleX = printableWidthPX / img.width;
+      const scaledHeight = img.height * scaleX;
+
+      // Create PDF
       const pdf = new jsPDF('p', 'mm', 'a4');
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (img.height * pdfWidth) / img.width;
-      const pageHeight = pdf.internal.pageSize.getHeight();
-      let heightLeft = pdfHeight;
-      let position = 0;
-      pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
-      heightLeft -= pageHeight;
-      while (heightLeft > 0) {
-        position = heightLeft - pdfHeight;
-        pdf.addPage();
-        pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
-        heightLeft -= pageHeight;
+      const pageWidthMM = 210;
+      const pageHeightMM = 297;
+      const contentWidthMM = pageWidthMM - marginMM * 2;
+      const contentHeightMM = pageHeightMM - marginMM * 2;
+
+      // Convert scaled image height to mm
+      const imageHeightMM = (scaledHeight / PDF_DPI) * MM_PER_INCH;
+
+      // Calculate total pages
+      const totalPages = Math.ceil(imageHeightMM / contentHeightMM);
+
+      for (let page = 0; page < totalPages; page++) {
+        if (page > 0) pdf.addPage();
+
+        const yOffsetMM = page * contentHeightMM;
+        const srcWidthPX = img.width;
+        const srcHeightPX = img.height;
+
+        // Source Y offset in pixels
+        const srcYOffsetPX = (yOffsetMM / imageHeightMM) * srcHeightPX;
+        // Source slice height in pixels
+        const srcSliceHeightPX = Math.min(
+          (contentHeightMM / imageHeightMM) * srcHeightPX,
+          srcHeightPX - srcYOffsetPX
+        );
+        // Destination slice height in mm
+        const destSliceHeightMM = (srcSliceHeightPX / srcHeightPX) * imageHeightMM;
+
+        // Slice the image for this page
+        const sliceCanvas = document.createElement('canvas');
+        sliceCanvas.width = srcWidthPX;
+        sliceCanvas.height = srcSliceHeightPX;
+        const ctx = sliceCanvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(
+            img,
+            0, srcYOffsetPX, srcWidthPX, srcSliceHeightPX,
+            0, 0, srcWidthPX, srcSliceHeightPX
+          );
+
+          const sliceData = sliceCanvas.toDataURL('image/png');
+          pdf.addImage(sliceData, 'PNG', marginMM, marginMM, contentWidthMM, destSliceHeightMM);
+        }
       }
+
+      // Save with patient name + date
       const now = new Date();
       const day = String(now.getDate()).padStart(2, '0');
       const month = String(now.getMonth() + 1).padStart(2, '0');
       const year = String(now.getFullYear()).slice(-2);
-      const patientName = (invoice.patientName || 'patient').replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
-      pdf.save(`${patientName}_${day}-${month}-${year}.pdf`);
+      const pdfPatientName = (invoice.patientName || 'patient').replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
+      pdf.save(`${pdfPatientName}_${day}-${month}-${year}.pdf`);
     } catch (error) {
       console.error('PDF generation error:', error);
       alert('Failed to generate PDF');
     } finally {
       setDownloading(false);
     }
-  };
+  }, [invoice]);
 
   const handlePaymentUpdate = async (status: string) => {
     setUpdatingPayment(true);
@@ -177,7 +236,7 @@ export default function InvoiceDetailPage() {
         </div>
       </div>
 
-      {/* Payment status badge - visible on screen */}
+      {/* Payment status badge */}
       <div className="bg-white rounded-lg shadow p-4 flex items-center gap-2 print:hidden no-print">
         <CreditCard className="h-5 w-5 text-blue-500" />
         <span className="text-sm font-medium">Payment Status:</span>
@@ -197,16 +256,36 @@ export default function InvoiceDetailPage() {
         </span>
       </div>
 
+      {/* On-screen invoice (responsive) */}
       <div className="bg-white rounded-lg shadow print:shadow-none print:border-none">
         <InvoicePrint
           ref={printRef}
           invoice={invoice as unknown as Parameters<typeof InvoicePrint>[0]['invoice']}
-          patient={
-            patient as unknown as Parameters<typeof InvoicePrint>[0]['patient']
-          }
-          clinic={
-            clinic as unknown as Parameters<typeof InvoicePrint>[0]['clinic']
-          }
+          patient={patient as unknown as Parameters<typeof InvoicePrint>[0]['patient']}
+          clinic={clinic as unknown as Parameters<typeof InvoicePrint>[0]['clinic']}
+        />
+      </div>
+
+      {/* Hidden PDF capture container — fixed A4 width, in-flow for html-to-image */}
+      <div
+        ref={pdfRef}
+        style={{
+          position: 'absolute',
+          left: 0,
+          top: 0,
+          width: `${A4_WIDTH_PX}px`,
+          maxWidth: `${A4_WIDTH_PX}px`,
+          overflow: 'hidden',
+          background: 'white',
+          zIndex: -1,
+          pointerEvents: 'none',
+        }}
+      >
+        <InvoicePrint
+          invoice={invoice as unknown as Parameters<typeof InvoicePrint>[0]['invoice']}
+          patient={patient as unknown as Parameters<typeof InvoicePrint>[0]['patient']}
+          clinic={clinic as unknown as Parameters<typeof InvoicePrint>[0]['clinic']}
+          pdfMode
         />
       </div>
     </div>
