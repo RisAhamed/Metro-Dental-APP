@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Receipt, Eye, Printer } from 'lucide-react';
+import { Receipt, Eye, Printer, Plus } from 'lucide-react';
 import { EmptyState, formatMoney, formatDateDDMMM } from './shared';
 
 interface RealInvoice {
@@ -53,9 +53,17 @@ export function PatientRealInvoices({ patientId }: PatientRealInvoicesProps) {
 
   return (
     <div>
-      <h3 className="font-semibold text-gray-700 mb-4 flex items-center gap-2">
-        <Receipt className="h-5 w-5 text-blue-500" /> Invoices
-      </h3>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-semibold text-gray-700 flex items-center gap-2">
+          <Receipt className="h-5 w-5 text-blue-500" /> Invoices
+        </h3>
+        <button
+          onClick={() => router.push(`/patients/${patientId}/billing/invoices/new`)}
+          className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"
+        >
+          <Plus className="h-4 w-4" /> New Invoice
+        </button>
+      </div>
       {loading ? (
         <p className="text-sm text-gray-500">Loading invoices...</p>
       ) : invoices.length === 0 ? (

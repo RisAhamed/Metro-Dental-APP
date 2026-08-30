@@ -608,7 +608,7 @@ export default function PatientProfilePage() {
             patientId={patientId}
             clinicId={clinicId}
             doctorId={String(sessionClaims?.userId || '')}
-            doctorName={String(sessionClaims?.name || '')}
+            doctorName={String(sessionClaims?.name || sessionClaims?.email || '').replace(/@.*$/, '') || 'Doctor'}
             userRole={role}
           />
         );

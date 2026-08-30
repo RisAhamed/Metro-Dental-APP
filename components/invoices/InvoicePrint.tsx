@@ -50,12 +50,10 @@ interface InvoicePrintProps {
   invoice: InvoiceData;
   patient?: PatientInfo | null;
   clinic?: ClinicInfo | null;
-  doctorName?: string | null;
-  doctorRegistration?: string | null;
 }
 
 export const InvoicePrint = forwardRef<HTMLDivElement, InvoicePrintProps>(
-  ({ invoice, patient, clinic, doctorName }, ref) => {
+  ({ invoice, patient, clinic }, ref) => {
     const clinicName = clinic?.name || 'Metro Dental Clinic';
     const clinicAddress = clinic?.address || 'Clinic Address, Phone, Email';
     const clinicPhone = clinic?.phone;
@@ -86,20 +84,6 @@ export const InvoicePrint = forwardRef<HTMLDivElement, InvoicePrintProps>(
           <p className="text-sm text-gray-600 mt-1">
             {[clinicAddress, clinicPhone, clinicEmail].filter(Boolean).join(' • ')}
           </p>
-        </div>
-
-        {/* Doctor Info */}
-        <div className="flex justify-between text-sm mt-4 pb-4 border-b border-gray-200">
-          <div>
-            <p>
-              <span className="font-semibold">Doctor:</span> {doctorName ? `Dr. ${doctorName}` : `Dr. ${invoice.createdBy}`}
-            </p>
-            <p className="text-gray-600 text-xs mt-0.5">General Dentistry</p>
-          </div>
-          <div className="text-right">
-            <p className="text-xs text-gray-500">Reg. No.: —</p>
-            {clinicPhone && <p className="text-xs text-gray-500">Contact: {clinicPhone}</p>}
-          </div>
         </div>
 
         {/* Invoice Meta */}
@@ -199,29 +183,11 @@ export const InvoicePrint = forwardRef<HTMLDivElement, InvoicePrintProps>(
           </div>
         </div>
 
-        {/* Payment Status */}
-        <div className="mt-4">
-          <p className="text-sm">
-            <span className="font-semibold">Payment Status:</span>{' '}
-            <span
-              className={`px-2 py-0.5 text-xs rounded-full font-semibold ${
-                invoice.paymentStatus === 'PAID'
-                  ? 'bg-green-100 text-green-700'
-                  : invoice.paymentStatus === 'PARTIALLY_PAID'
-                    ? 'bg-yellow-100 text-yellow-700'
-                    : 'bg-red-100 text-red-700'
-              }`}
-            >
-              {invoice.paymentStatus}
-            </span>
-          </p>
-        </div>
-
         {/* Signature & Stamp */}
         <div className="mt-12 flex justify-between items-end">
           <div className="text-center">
             <div className="w-40 h-12 border-b border-gray-400 mb-1"></div>
-            <p className="text-xs text-gray-600">Doctor&apos;s Signature</p>
+            <p className="text-xs text-gray-600">Authorized Signature</p>
           </div>
           <div className="text-center">
             <div className="w-32 h-16 border border-dashed border-gray-300 rounded flex items-center justify-center">

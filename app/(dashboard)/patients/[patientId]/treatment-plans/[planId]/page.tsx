@@ -307,24 +307,7 @@ export default function TreatmentPlanDetailPage() {
               Print
             </button>
             <button
-              onClick={async () => {
-                try {
-                  const res = await fetch(`/api/treatment-plans/${planId}/generate-invoice`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ patientId }),
-                  });
-                  const data = await res.json();
-                  if (res.ok) {
-                    alert('Invoice generated: ' + (data.invoiceId || 'Success'));
-                    // Optionally navigate to invoice page if exists
-                  } else {
-                    alert(data.error || 'Failed to generate invoice');
-                  }
-                } catch {
-                  alert('Failed to generate invoice');
-                }
-              }}
+              onClick={() => router.push(`/patients/${patientId}/billing/invoices/new?planId=${planId}`)}
               className="flex items-center gap-1 px-4 py-2 bg-green-600 text-white rounded-md text-sm hover:bg-green-700"
             >
               Generate Invoice

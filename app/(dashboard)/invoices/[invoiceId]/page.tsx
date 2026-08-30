@@ -38,7 +38,6 @@ export default function InvoiceDetailPage() {
   const [invoice, setInvoice] = useState<InvoiceData | null>(null);
   const [patient, setPatient] = useState<Record<string, unknown> | null>(null);
   const [clinic, setClinic] = useState<Record<string, unknown> | null>(null);
-  const [doctorName, setDoctorName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [updatingPayment, setUpdatingPayment] = useState(false);
@@ -54,7 +53,6 @@ export default function InvoiceDetailPage() {
           setInvoice(data.invoice);
           setPatient(data.patient);
           setClinic(data.clinic);
-          setDoctorName(data.doctorName || null);
         } else setNotFound(true);
       } catch {
         setNotFound(true);
@@ -73,17 +71,21 @@ export default function InvoiceDetailPage() {
     if (!printRef.current || !invoice) return;
     setDownloading(true);
     try {
-      const html2canvas = (await import('html2canvas')).default;
+      const { toPng } = await import('html-to-image');
       const { jsPDF } = await import('jspdf');
-      const canvas = await html2canvas(printRef.current, {
-        scale: 2,
-        useCORS: true,
+      const imgData = await toPng(printRef.current, {
+        pixelRatio: 2,
         backgroundColor: '#ffffff',
+        cacheBust: true,
       });
-      const imgData = canvas.toDataURL('image/png');
+      const img = new Image();
+      img.src = imgData;
+      await new Promise<void>((resolve) => {
+        img.onload = () => resolve();
+      });
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      const pdfHeight = (img.height * pdfWidth) / img.width;
       const pageHeight = pdf.internal.pageSize.getHeight();
       let heightLeft = pdfHeight;
       let position = 0;
@@ -95,7 +97,12 @@ export default function InvoiceDetailPage() {
         pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
         heightLeft -= pageHeight;
       }
-      pdf.save(`${invoice.invoiceNumber}.pdf`);
+      const now = new Date();
+      const day = String(now.getDate()).padStart(2, '0');
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const year = String(now.getFullYear()).slice(-2);
+      const patientName = (invoice.patientName || 'patient').replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
+      pdf.save(`${patientName}_${day}-${month}-${year}.pdf`);
     } catch (error) {
       console.error('PDF generation error:', error);
       alert('Failed to generate PDF');
@@ -200,7 +207,6 @@ export default function InvoiceDetailPage() {
           clinic={
             clinic as unknown as Parameters<typeof InvoicePrint>[0]['clinic']
           }
-          doctorName={doctorName}
         />
       </div>
     </div>
