@@ -41,7 +41,7 @@ export async function POST(
 
   const { patientId } = await params;
   const body = await req.json();
-  const { clinicId, doctorId, doctorName, chiefComplaints, observations, diagnoses, investigations, notes } = body;
+  const { clinicId, doctorId, doctorName, date, chiefComplaints, observations, diagnoses, investigations, notes } = body;
 
   if (!clinicId) {
     return NextResponse.json({ error: 'Missing clinicId' }, { status: 400 });
@@ -57,6 +57,7 @@ export async function POST(
         clinicId,
         doctorId,
         doctorName: doctorName || '',
+        date: date ? new Date(date) : new Date(),
         chiefComplaints: chiefComplaints || [],
         observations: observations || [],
         diagnoses: diagnoses || [],

@@ -58,6 +58,8 @@ interface Patient {
     pincode: string;
   } | null;
   referredByName: string | null;
+  referredRelation: string | null;
+  referredPatientId: string | null;
   medicalHistory: string[];
   otherHistory: string | null;
   groups: string[];
@@ -798,7 +800,7 @@ export default function PatientProfilePage() {
         </button>
 
         <div className="bg-white rounded-lg shadow p-4 sm:p-6">
-          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
             <div className="flex items-start gap-3 sm:gap-4 min-w-0 flex-1">
               <div className="h-12 w-12 sm:h-14 sm:w-14 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center flex-shrink-0">
                 <User className="h-6 w-6 sm:h-7 sm:w-7" />
@@ -821,56 +823,46 @@ export default function PatientProfilePage() {
                   {patient.age !== null && (
                     <span className="text-xs sm:text-sm text-gray-500">• {patient.age} yrs</span>
                   )}
-                  <button
-                    onClick={() => setShowEditModal(true)}
-                    title="Edit patient details"
-                    className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] sm:text-xs text-blue-600 border border-blue-200 rounded-full hover:bg-blue-50 flex-shrink-0"
-                  >
-                    <Pencil className="h-3 w-3" /> Edit
-                  </button>
                 </div>
+                {Number(patient.totalDue || 0) > 0 && (
+                  <button
+                    onClick={() => setActiveSection('LEDGER')}
+                    className="mt-1.5 text-sm font-semibold text-red-600 hover:text-red-700 hover:underline"
+                  >
+                    Due: ₹{Number(patient.totalDue || 0).toFixed(2)} →
+                  </button>
+                )}
+                {Number(patient.totalDue || 0) === 0 && (
+                  <p className="mt-1.5 text-sm font-semibold text-green-600">
+                    All Paid ✓
+                  </p>
+                )}
               </div>
             </div>
-            <div className="sm:text-right w-full sm:w-auto bg-gray-50 sm:bg-transparent rounded-lg p-3 sm:p-0">
-              <p className="text-[10px] sm:text-xs text-gray-500 uppercase tracking-wide sm:normal-case">Financial Summary</p>
-              <div className="mt-1 grid grid-cols-3 sm:block gap-2 sm:space-y-0.5 text-xs sm:text-sm">
-                <p className="text-center sm:text-right">
-                  <span className="block sm:inline text-gray-500 text-[10px] sm:text-sm">Advance</span>{' '}
-                  <span className="font-semibold text-green-600 block sm:inline">
-                    ₹{Number(patient.advanceBalance || 0).toFixed(2)}
-                  </span>
-                </p>
-                <p className="text-center sm:text-right">
-                  <span className="block sm:inline text-gray-500 text-[10px] sm:text-sm">Paid</span>{' '}
-                  <span className="font-semibold text-blue-600 block sm:inline">
-                    ₹{Number(patient.totalPaid || 0).toFixed(2)}
-                  </span>
-                </p>
-                <p className="text-center sm:text-right">
-                  <span className="block sm:inline text-gray-500 text-[10px] sm:text-sm">Due</span>{' '}
-                  <span className="font-semibold text-red-600 block sm:inline">
-                    ₹{Number(patient.totalDue || 0).toFixed(2)}
-                  </span>
-                </p>
-              </div>
-              <div className="mt-3 flex gap-2 sm:justify-end">
-                {canBillingEdit && (
-                  <button
-                    onClick={() => setShowPaymentModal(true)}
-                    className="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-blue-600 text-white text-xs sm:text-sm rounded-md hover:bg-blue-700 text-center justify-center"
-                  >
-                    Record Payment
-                  </button>
-                )}
-                {canManageSessions && (
-                  <button
-                    onClick={() => router.push(`/patients/${patientId}/visits/new`)}
-                    className="flex-1 sm:flex-none flex items-center justify-center gap-1 px-3 sm:px-4 py-2 bg-green-600 text-white text-xs sm:text-sm rounded-md hover:bg-green-700"
-                  >
-                    <Plus className="h-3 w-3 sm:h-4 sm:w-4" /> <span className="hidden xs:inline">New Session</span><span className="xs:hidden">New</span>
-                  </button>
-                )}
-              </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <button
+                onClick={() => setShowEditModal(true)}
+                title="Edit patient details"
+                className="inline-flex items-center gap-1 px-3 py-2 text-xs sm:text-sm text-blue-600 border border-blue-200 rounded-md hover:bg-blue-50"
+              >
+                <Pencil className="h-3.5 w-3.5" /> Edit
+              </button>
+              {canBillingEdit && (
+                <button
+                  onClick={() => setShowPaymentModal(true)}
+                  className="flex items-center gap-1 px-3 py-2 bg-blue-600 text-white text-xs sm:text-sm rounded-md hover:bg-blue-700"
+                >
+                  Record Payment
+                </button>
+              )}
+              {canManageSessions && (
+                <button
+                  onClick={() => router.push(`/patients/${patientId}/visits/new`)}
+                  className="flex items-center gap-1 px-3 py-2 bg-green-600 text-white text-xs sm:text-sm rounded-md hover:bg-green-700"
+                >
+                  <Plus className="h-3.5 w-3.5" /> New
+                </button>
+              )}
             </div>
           </div>
 

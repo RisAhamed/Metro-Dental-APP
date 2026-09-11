@@ -75,8 +75,6 @@ interface PatientSidebarProps {
 
 export function PatientSidebar({
   patientName,
-  patientId,
-  genderAge,
   activeSection,
   onSectionChange,
   onClose,
@@ -85,26 +83,8 @@ export function PatientSidebar({
     <>
       {/* Mobile: horizontal tab bar */}
       <div className="lg:hidden w-full bg-white rounded-lg shadow mb-4 overflow-hidden">
-        <div className="p-3 border-b border-gray-100 flex items-center gap-3">
-          <div className="h-8 w-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center flex-shrink-0">
-            <User className="h-4 w-4" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="font-semibold text-gray-900 text-sm truncate">{patientName}</p>
-            <p className="text-xs text-gray-500 truncate">ID: {patientId} • {genderAge}</p>
-          </div>
-          {onClose && (
-            <button
-              onClick={onClose}
-              className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
-              aria-label="Close sidebar"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          )}
-        </div>
-        <div className="overflow-x-auto scrollbar-thin">
-          <nav className="flex gap-1 p-2 whitespace-nowrap">
+        <div className="p-3 border-b border-gray-100 overflow-x-auto scrollbar-thin">
+          <nav className="flex gap-1 whitespace-nowrap">
             {GROUPS.flatMap((g) => g.items).map(({ key, label, icon: Icon }) => (
               <button
                 key={key}
@@ -116,8 +96,7 @@ export function PatientSidebar({
                 }`}
               >
                 <Icon className="h-3.5 w-3.5 flex-shrink-0" />
-                <span className="hidden xs:inline">{label}</span>
-                <span className="xs:hidden">{label.split(' ')[0]}</span>
+                <span>{label}</span>
               </button>
             ))}
           </nav>
@@ -126,28 +105,21 @@ export function PatientSidebar({
 
       {/* Desktop: vertical sidebar */}
       <div className="hidden lg:block w-56 flex-shrink-0 bg-white rounded-lg shadow h-fit sticky top-6">
-        <div className="p-4 border-b border-gray-100">
-          <div className="flex items-start justify-between">
-            <div className="h-10 w-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center mb-2">
-              <User className="h-5 w-5" />
-            </div>
-            {onClose && (
-              <button
-                onClick={onClose}
-                className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors mt-0.5"
-                title="Hide sidebar"
-                aria-label="Hide sidebar"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            )}
-          </div>
-          <p className="font-semibold text-gray-900 truncate">{patientName}</p>
-          <p className="text-xs text-gray-500">ID: {patientId}</p>
-          <p className="text-xs text-gray-400">{genderAge}</p>
+        <div className="p-3 border-b border-gray-100 flex items-center justify-between">
+          <p className="font-semibold text-gray-900 text-sm truncate flex-1">{patientName}</p>
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors ml-2"
+              title="Hide sidebar"
+              aria-label="Hide sidebar"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
         </div>
 
-        <nav className="p-2 max-h-[calc(100vh-260px)] overflow-y-auto">
+        <nav className="p-2 max-h-[calc(100vh-200px)] overflow-y-auto">
           {GROUPS.map((group, gi) => (
             <div key={gi}>
               {group.label && (

@@ -2,23 +2,32 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { format, isSameDay, parseISO } from 'date-fns';
-import { Zap, Plus } from 'lucide-react';
+import { format, addDays, isSameDay, parseISO } from 'date-fns';
+import { Zap, Plus, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { CalendarAppointment, CalendarStats } from './types';
 
 type StatTab = 'ALL' | 'ONLINE' | 'OFFLINE';
 
-const STATUS_OPTIONS = ['CONFIRMED', 'IN_PROGRESS', 'COMPLETED', 'NO_SHOW'] as const;
+const STATUS_OPTIONS = ['CONFIRMED', 'WAITING', 'ENGAGED', 'COMPLETED', 'NO_SHOW'] as const;
 
 function statusDot(status: string): { color: string; label: string; chip: string } {
   switch (status) {
     case 'SCHEDULED':
+      return { color: 'bg-gray-400', label: 'Scheduled', chip: 'bg-gray-100 text-gray-600 border border-gray-200' };
     case 'CONFIRMED':
-      return { color: 'bg-green-500', label: 'Waiting', chip: 'bg-green-50 text-green-700 border border-green-200' };
+      return { color: 'bg-blue-500', label: 'Confirmed', chip: 'bg-blue-50 text-blue-700 border border-blue-200' };
+    case 'WAITING':
+      return { color: 'bg-amber-500', label: 'Waiting', chip: 'bg-amber-50 text-amber-700 border border-amber-200' };
+    case 'ENGAGED':
+      return { color: 'bg-purple-500', label: 'Engaged', chip: 'bg-purple-50 text-purple-700 border border-purple-200' };
     case 'IN_PROGRESS':
-      return { color: 'bg-yellow-500', label: 'Engaged', chip: 'bg-yellow-50 text-yellow-700 border border-yellow-200' };
+      return { color: 'bg-purple-500', label: 'Engaged', chip: 'bg-purple-50 text-purple-700 border border-purple-200' };
     case 'COMPLETED':
-      return { color: 'bg-emerald-700', label: 'Done', chip: 'bg-emerald-50 text-emerald-700 border border-emerald-200' };
+      return { color: 'bg-green-600', label: 'Done', chip: 'bg-green-50 text-green-700 border border-green-200' };
+    case 'NO_SHOW':
+      return { color: 'bg-red-500', label: 'No Show', chip: 'bg-red-50 text-red-700 border border-red-200' };
+    case 'CANCELLED':
+      return { color: 'bg-gray-600', label: 'Cancelled', chip: 'bg-gray-100 text-gray-500 border border-gray-200' };
     default:
       return { color: 'bg-gray-400', label: status, chip: 'bg-gray-100 text-gray-600 border border-gray-200' };
   }
@@ -32,6 +41,9 @@ interface SidebarStatsProps {
   onWalkIn: () => void;
   onStatusChange: (appointmentId: string, status: string) => void;
   onAppointmentClick: (appt: CalendarAppointment, e: React.MouseEvent) => void;
+  onDateChange: (date: Date) => void;
+  onHoverOpen?: (appt: CalendarAppointment, e: React.MouseEvent) => void;
+  onHoverClose?: () => void;
 }
 
 export function SidebarStats({
@@ -42,6 +54,9 @@ export function SidebarStats({
   onWalkIn,
   onStatusChange,
   onAppointmentClick,
+  onDateChange,
+  onHoverOpen,
+  onHoverClose,
 }: SidebarStatsProps) {
   const router = useRouter();
   const [tab, setTab] = useState<StatTab>('ALL');
@@ -68,8 +83,23 @@ export function SidebarStats({
 
   return (
     <div className="w-80 flex-shrink-0 bg-white rounded-lg shadow p-4 h-[calc(100vh-160px)] overflow-y-auto">
+      {/* Header with day navigation */}
       <div className="flex items-center justify-between mb-3">
-        <h3 className="font-semibold text-gray-800">{panelTitle}</h3>
+        <button
+          onClick={() => onDateChange(addDays(selectedDate, -1))}
+          className="p-1 rounded hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors"
+          title="Previous day"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </button>
+        <h3 className="font-semibold text-gray-800 text-sm">{panelTitle}</h3>
+        <button
+          onClick={() => onDateChange(addDays(selectedDate, 1))}
+          className="p-1 rounded hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors"
+          title="Next day"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </button>
       </div>
 
       <button
@@ -134,6 +164,8 @@ export function SidebarStats({
                 key={appt.appointmentId}
                 className="rounded-md border border-gray-100 hover:border-blue-200 hover:bg-blue-50/40 p-2 cursor-pointer transition-colors relative"
                 onClick={(e) => onAppointmentClick(appt, e)}
+                onMouseEnter={(e) => onHoverOpen?.(appt, e)}
+                onMouseLeave={() => onHoverClose?.()}
               >
                 <div className="flex items-start gap-2">
                   <span className="text-xs font-semibold text-gray-700 w-12 flex-shrink-0 pt-0.5">
@@ -178,39 +210,41 @@ export function SidebarStats({
                         {dot.label}
                       </span>
                       <div className="ml-auto flex items-center gap-1">
-                        {(appt.status === 'SCHEDULED' || appt.status === 'CONFIRMED') && (
+                        {appt.status === 'SCHEDULED' && (
                           <>
                             <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onStatusChange(appt.appointmentId, 'IN_PROGRESS');
-                              }}
-                              title="Patient is with the doctor"
-                              className="px-2 py-0.5 text-[10px] rounded border border-yellow-300 text-yellow-700 hover:bg-yellow-50 transition-colors"
+                              onClick={(e) => { e.stopPropagation(); onStatusChange(appt.appointmentId, 'CONFIRMED'); }}
+                              className="px-2 py-0.5 text-[10px] rounded border border-blue-300 text-blue-700 hover:bg-blue-50 transition-colors"
+                            >
+                              Confirm
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); onStatusChange(appt.appointmentId, 'WAITING'); }}
+                              className="px-2 py-0.5 text-[10px] rounded border border-amber-300 text-amber-700 hover:bg-amber-50 transition-colors"
                             >
                               Check In
                             </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setStatusMenuFor(
-                                  statusMenuFor === appt.appointmentId ? null : appt.appointmentId
-                                );
-                              }}
-                              title="More status options"
-                              className="px-2 py-0.5 text-[10px] rounded border border-red-200 text-red-600 hover:bg-red-50 transition-colors"
-                            >
-                              No Show
-                            </button>
                           </>
                         )}
-                        {appt.status === 'IN_PROGRESS' && (
+                        {appt.status === 'CONFIRMED' && (
                           <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onStatusChange(appt.appointmentId, 'COMPLETED');
-                            }}
-                            title="Appointment finished"
+                            onClick={(e) => { e.stopPropagation(); onStatusChange(appt.appointmentId, 'WAITING'); }}
+                            className="px-2 py-0.5 text-[10px] rounded border border-amber-300 text-amber-700 hover:bg-amber-50 transition-colors"
+                          >
+                            Check In
+                          </button>
+                        )}
+                        {appt.status === 'WAITING' && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); onStatusChange(appt.appointmentId, 'ENGAGED'); }}
+                            className="px-2 py-0.5 text-[10px] rounded border border-purple-300 text-purple-700 hover:bg-purple-50 transition-colors"
+                          >
+                            Engage
+                          </button>
+                        )}
+                        {(appt.status === 'ENGAGED' || appt.status === 'IN_PROGRESS') && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); onStatusChange(appt.appointmentId, 'COMPLETED'); }}
                             className="px-2 py-0.5 text-[10px] rounded border border-green-300 text-green-700 hover:bg-green-50 transition-colors"
                           >
                             Check Out

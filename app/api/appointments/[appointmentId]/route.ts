@@ -89,6 +89,8 @@ export async function PATCH(
     if (body.surgeryTypeName !== undefined) updateFields.surgeryTypeName = body.surgeryTypeName || null;
     if (body.referredById !== undefined) updateFields.referredById = body.referredById || null;
     if (body.referredByName !== undefined) updateFields.referredByName = body.referredByName || null;
+    if (body.referralSourceId !== undefined) updateFields.referralSourceId = body.referralSourceId || null;
+    if (body.referralSubType !== undefined) updateFields.referralSubType = body.referralSubType || null;
     if (body.isReferral !== undefined) updateFields.isReferral = Boolean(body.isReferral);
     if (body.chiefDoctorRevenue !== undefined) {
       updateFields.chiefDoctorRevenue = body.chiefDoctorRevenue === null
@@ -147,7 +149,7 @@ export async function PATCH(
     }
 
     // Log check-in / completion activity
-    if (status === 'IN_PROGRESS' || status === 'COMPLETED') {
+    if (status === 'WAITING' || status === 'ENGAGED' || status === 'IN_PROGRESS' || status === 'COMPLETED') {
       const userSnap = await db
         .select({ name: users.name })
         .from(users)
@@ -155,31 +157,30 @@ export async function PATCH(
         .limit(1);
       const actorName = userSnap[0]?.name || 'Staff';
 
-      if (status === 'IN_PROGRESS') {
-        await logActivity({
-          clinicId: existing.clinicId,
-          type: 'PATIENT_CHECKIN',
-          message: `${existing.patientName} checked in for appointment ${appointmentId}`,
-          userId,
-          userName: actorName,
-          userRole: (sessionClaims?.role as string) || undefined,
-          relatedEntityType: 'appointment',
-          relatedEntityId: appointmentId,
-          metadata: { patientId: existing.patientId },
-        });
-      } else if (status === 'COMPLETED') {
-        await logActivity({
-          clinicId: existing.clinicId,
-          type: 'APPOINTMENT_COMPLETED',
-          message: `Appointment for ${existing.patientName} completed with ${existing.doctorName}`,
-          userId,
-          userName: actorName,
-          userRole: (sessionClaims?.role as string) || undefined,
-          relatedEntityType: 'appointment',
-          relatedEntityId: appointmentId,
-          metadata: { patientId: existing.patientId },
-        });
-      }
+      const messages: Record<string, string> = {
+        WAITING: `${existing.patientName} checked in (waiting) for appointment ${appointmentId}`,
+        ENGAGED: `${existing.patientName} is now with doctor for appointment ${appointmentId}`,
+        IN_PROGRESS: `${existing.patientName} checked in for appointment ${appointmentId}`,
+        COMPLETED: `Appointment for ${existing.patientName} completed with ${existing.doctorName}`,
+      };
+      const types: Record<string, string> = {
+        WAITING: 'PATIENT_CHECKIN',
+        ENGAGED: 'PATIENT_CHECKIN',
+        IN_PROGRESS: 'PATIENT_CHECKIN',
+        COMPLETED: 'APPOINTMENT_COMPLETED',
+      };
+
+      await logActivity({
+        clinicId: existing.clinicId,
+        type: types[status] as 'PATIENT_CHECKIN' | 'APPOINTMENT_COMPLETED',
+        message: messages[status],
+        userId,
+        userName: actorName,
+        userRole: (sessionClaims?.role as string) || undefined,
+        relatedEntityType: 'appointment',
+        relatedEntityId: appointmentId,
+        metadata: { patientId: existing.patientId },
+      });
     }
 
     const newStatus = status || existing.status;

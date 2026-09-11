@@ -31,6 +31,11 @@ interface ClinicalNoteFormProps {
   onCancel: () => void;
 }
 
+interface DoctorOption {
+  uid: string;
+  name: string;
+}
+
 interface LookupItem {
   id: string;
   category: string;
@@ -345,6 +350,17 @@ export default function ClinicalNoteForm({
 
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
 
+  const [doctors, setDoctors] = useState<DoctorOption[]>([]);
+  const [selectedDoctorId, setSelectedDoctorId] = useState(existingNote?.doctorId || doctorId);
+  const [selectedDoctorName, setSelectedDoctorName] = useState(existingNote?.doctorName || doctorName);
+  const [noteDate, setNoteDate] = useState(() => {
+    if (existingNote?.date) {
+      const d = new Date(existingNote.date);
+      return d.toISOString().slice(0, 16);
+    }
+    return new Date().toISOString().slice(0, 16);
+  });
+
   useEffect(() => {
     if (existingNote) return;
     let active = true;
@@ -366,6 +382,23 @@ export default function ClinicalNoteForm({
   useEffect(() => {
     if (notesTaRef.current) resize(notesTaRef.current);
   }, [notes, resize]);
+
+  useEffect(() => {
+    let active = true;
+    fetch(`/api/users?clinicId=${clinicId}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (active) {
+          const filtered = (data.users || []).filter((u: { role: string }) =>
+            ['SUPER_ADMIN', 'CLINIC_ADMIN', 'GENERAL_DOCTOR'].includes(u.role)
+          );
+          setDoctors(filtered.map((u: { uid: string; name: string }) => ({ uid: u.uid, name: u.name })));
+        }
+      })
+      .catch(() => {})
+      .finally(() => {});
+    return () => { active = false; };
+  }, [clinicId]);
 
   const handleCategoryFocus = useCallback((cat: string) => {
     setActiveCategory(cat);
@@ -409,8 +442,9 @@ export default function ClinicalNoteForm({
       const clean = (arr: string[]) => arr.filter((v) => v.trim());
       const payload = {
         clinicId,
-        doctorId: doctorId || 'system',
-        doctorName: doctorName || 'Unknown',
+        doctorId: selectedDoctorId || doctorId || 'system',
+        doctorName: selectedDoctorName || doctorName || 'Unknown',
+        date: new Date(noteDate).toISOString(),
         chiefComplaints: clean(chiefComplaints),
         observations: clean(observations),
         diagnoses: clean(diagnoses),
@@ -466,6 +500,39 @@ export default function ClinicalNoteForm({
             {saveError}
           </div>
         )}
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Doctor *</label>
+            <select
+              value={selectedDoctorId}
+              onChange={(e) => {
+                const doc = doctors.find((d) => d.uid === e.target.value);
+                setSelectedDoctorId(e.target.value);
+                setSelectedDoctorName(doc?.name || '');
+              }}
+              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            >
+              {doctors.map((doc) => (
+                <option key={doc.uid} value={doc.uid}>
+                  Dr. {doc.name}
+                </option>
+              ))}
+              {!doctors.find((d) => d.uid === selectedDoctorId) && selectedDoctorId && (
+                <option value={selectedDoctorId}>{selectedDoctorName}</option>
+              )}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Date & Time *</label>
+            <input
+              type="datetime-local"
+              value={noteDate}
+              onChange={(e) => setNoteDate(e.target.value)}
+              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
+        </div>
 
         {CATEGORIES.map(({ key, label, lookupCategory }) => (
           <DynamicSection

@@ -45,7 +45,7 @@ export async function PUT(
       .set({ status, updatedAt: new Date(), updatedBy: userId })
       .where(eq(appointments.appointmentId, appointmentId));
 
-    if (status === 'IN_PROGRESS' || status === 'COMPLETED' || status === 'NO_SHOW') {
+    if (status === 'WAITING' || status === 'ENGAGED' || status === 'IN_PROGRESS' || status === 'COMPLETED' || status === 'NO_SHOW') {
       const userSnap = await db
         .select({ name: users.name })
         .from(users)
@@ -54,11 +54,15 @@ export async function PUT(
       const actorName = userSnap[0]?.name || 'Staff';
 
       const messages: Record<string, string> = {
+        WAITING: `${existing.patientName} checked in (waiting) for appointment ${appointmentId}`,
+        ENGAGED: `${existing.patientName} is now with doctor for appointment ${appointmentId}`,
         IN_PROGRESS: `${existing.patientName} checked in for appointment ${appointmentId}`,
         COMPLETED: `Appointment for ${existing.patientName} completed with ${existing.doctorName}`,
         NO_SHOW: `${existing.patientName} marked as no-show for appointment ${appointmentId}`,
       };
-      const types: Record<string, 'PATIENT_CHECKIN' | 'APPOINTMENT_COMPLETED' | 'APPOINTMENT_NO_SHOW'> = {
+      const types: Record<string, string> = {
+        WAITING: 'PATIENT_CHECKIN',
+        ENGAGED: 'PATIENT_CHECKIN',
         IN_PROGRESS: 'PATIENT_CHECKIN',
         COMPLETED: 'APPOINTMENT_COMPLETED',
         NO_SHOW: 'APPOINTMENT_NO_SHOW',
@@ -66,7 +70,7 @@ export async function PUT(
 
       await logActivity({
         clinicId: existing.clinicId,
-        type: types[status],
+        type: types[status] as 'PATIENT_CHECKIN' | 'APPOINTMENT_COMPLETED' | 'APPOINTMENT_NO_SHOW',
         message: messages[status],
         userId,
         userName: actorName,

@@ -17,8 +17,10 @@ interface PatientDetails {
 }
 
 const NEXT_STATUSES: Record<string, string[]> = {
-  SCHEDULED: ['CONFIRMED', 'IN_PROGRESS', 'COMPLETED', 'NO_SHOW'],
-  CONFIRMED: ['IN_PROGRESS', 'COMPLETED', 'NO_SHOW'],
+  SCHEDULED: ['CONFIRMED', 'WAITING', 'NO_SHOW'],
+  CONFIRMED: ['WAITING', 'NO_SHOW'],
+  WAITING: ['ENGAGED', 'NO_SHOW'],
+  ENGAGED: ['COMPLETED'],
   IN_PROGRESS: ['COMPLETED'],
   COMPLETED: [],
 };
@@ -223,24 +225,32 @@ export function AppointmentPopover({
 
         {/* Status quick actions */}
         {(NEXT_STATUSES[appointment.status]?.length ?? 0) > 0 && (
-          <div className="mt-3 flex gap-1.5">
+          <div className="mt-3 flex gap-1.5 flex-wrap">
             {NEXT_STATUSES[appointment.status].map((s) => (
               <button
                 key={s}
                 disabled={updating}
                 onClick={() => onStatusChange(s)}
                 className={`px-2 py-1 text-[11px] rounded-md border transition-colors ${
-                  s === 'IN_PROGRESS'
-                    ? 'border-yellow-300 text-yellow-700 hover:bg-yellow-50'
+                  s === 'WAITING'
+                    ? 'border-amber-300 text-amber-700 hover:bg-amber-50'
+                    : s === 'ENGAGED'
+                    ? 'border-purple-300 text-purple-700 hover:bg-purple-50'
+                    : s === 'CONFIRMED'
+                    ? 'border-blue-300 text-blue-700 hover:bg-blue-50'
                     : s === 'COMPLETED'
-                    ? 'border-emerald-300 text-emerald-700 hover:bg-emerald-50'
-                    : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                    ? 'border-green-300 text-green-700 hover:bg-green-50'
+                    : 'border-red-200 text-red-600 hover:bg-red-50'
                 }`}
               >
-                {s === 'IN_PROGRESS'
+                {s === 'WAITING'
                   ? 'Check In'
+                  : s === 'ENGAGED'
+                  ? 'Engage'
                   : s === 'COMPLETED'
                   ? 'Check Out'
+                  : s === 'NO_SHOW'
+                  ? 'No Show'
                   : s.replace('_', ' ')}
               </button>
             ))}

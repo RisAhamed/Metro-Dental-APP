@@ -73,6 +73,7 @@ export async function POST(req: NextRequest) {
     categoryColor, isWalkIn, tokenNumber, abhaId,
     plannedProcedures, notes,
     surgeryTypeId, surgeryTypeName, referredById, referredByName, isReferral,
+    referralSourceId, referralSubType,
   } = body;
 
   if (!patientId || !doctorId || !appointmentDate || !clinicId || !patientName) {
@@ -161,6 +162,8 @@ export async function POST(req: NextRequest) {
         surgeryTypeName: surgeryTypeName || null,
         referredById: referredById || null,
         referredByName: referredByName || null,
+        referralSourceId: referralSourceId || null,
+        referralSubType: referralSubType || null,
         isReferral: isReferral || false,
         createdBy: userId,
         updatedBy: userId,

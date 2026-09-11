@@ -9,6 +9,19 @@ interface GroupOption {
   name: string;
 }
 
+interface ReferralRelationship {
+  id: string;
+  name: string;
+}
+
+interface PatientSearchResult {
+  patientId: string;
+  name: string;
+  gender: string;
+  age: number | null;
+  primaryPhone: string;
+}
+
 export default function NewPatientPage() {
   const { sessionClaims } = useAuth();
   const router = useRouter();
@@ -34,6 +47,8 @@ export default function NewPatientPage() {
     pincode: '',
     referredById: '',
     referredByName: '',
+    referredRelation: '',
+    referredPatientId: '',
     medicalHistory: [] as string[],
     otherHistory: '',
     groups: [] as string[],
@@ -45,6 +60,10 @@ export default function NewPatientPage() {
   const [availableGroups, setAvailableGroups] = useState<GroupOption[]>([]);
   const [availableMedicalHistory, setAvailableMedicalHistory] = useState<string[]>([]);
   const [availableReferralSources, setAvailableReferralSources] = useState<string[]>([]);
+  const [availableRelationships, setAvailableRelationships] = useState<ReferralRelationship[]>([]);
+  const [patientSearchResults, setPatientSearchResults] = useState<PatientSearchResult[]>([]);
+  const [patientSearchQuery, setPatientSearchQuery] = useState('');
+  const [showPatientSearch, setShowPatientSearch] = useState(false);
 
   const generatePatientId = async () => {
     setGeneratingId(true);
@@ -63,15 +82,17 @@ export default function NewPatientPage() {
 
   const fetchOptions = async () => {
     try {
-      const [groupsRes, conditionsRes, sourcesRes] = await Promise.all([
+      const [groupsRes, conditionsRes, sourcesRes, relationshipsRes] = await Promise.all([
         fetch(`/api/patient-groups?clinicId=${clinicId}`),
         fetch('/api/medical-conditions'),
         fetch('/api/referral-sources'),
+        fetch('/api/referral-relationships'),
       ]);
 
       const groupsData = await groupsRes.json();
       const conditionsData = await conditionsRes.json();
       const sourcesData = await sourcesRes.json();
+      const relationshipsData = await relationshipsRes.json();
 
       setAvailableGroups(groupsData.groups || []);
       setAvailableMedicalHistory(
@@ -80,12 +101,12 @@ export default function NewPatientPage() {
       setAvailableReferralSources(
         (sourcesData.sources || []).map((s: { name: string }) => s.name)
       );
+      setAvailableRelationships(relationshipsData.relationships || []);
     } catch (error) {
       console.error('Error loading options:', error);
     }
   };
 
-  // Generate patient ID and load options on mount
   useEffect(() => {
     const init = async () => {
       await generatePatientId();
@@ -109,6 +130,24 @@ export default function NewPatientPage() {
     } else {
       const data = await res.json();
       alert(data.error || 'Failed to add referral source');
+    }
+  };
+
+  const addRelationship = async () => {
+    const name = prompt('Enter new relationship name:');
+    if (!name) return;
+    const res = await fetch('/api/referral-relationships', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setAvailableRelationships((prev) => [...prev, data.relationship]);
+      setForm((prev) => ({ ...prev, referredRelation: name }));
+    } else {
+      const data = await res.json();
+      alert(data.error || 'Failed to add relationship');
     }
   };
 
@@ -144,6 +183,21 @@ export default function NewPatientPage() {
     } else {
       const data = await res.json();
       alert(data.error || 'Failed to add group');
+    }
+  };
+
+  const searchPatients = async (query: string) => {
+    setPatientSearchQuery(query);
+    if (query.length < 2) {
+      setPatientSearchResults([]);
+      return;
+    }
+    try {
+      const res = await fetch(`/api/patients/search?q=${encodeURIComponent(query)}`);
+      const data = await res.json();
+      setPatientSearchResults(data.patients || []);
+    } catch (error) {
+      console.error('Error searching patients:', error);
     }
   };
 
@@ -327,12 +381,14 @@ export default function NewPatientPage() {
                 value={form.referredByName}
                 onChange={(e) => {
                   const selected = e.target.value;
-                  const source = availableReferralSources.find((s) => s === selected);
                   setForm((prev) => ({
                     ...prev,
                     referredByName: selected,
-                    referredById: source || selected,
+                    referredById: selected,
+                    referredRelation: '',
+                    referredPatientId: '',
                   }));
+                  setShowPatientSearch(selected === 'Family');
                 }}
                 className="flex-1 border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
@@ -352,6 +408,75 @@ export default function NewPatientPage() {
               </button>
             </div>
           </div>
+
+          {showPatientSearch && (
+            <div className="mt-4 space-y-4">
+              <div>
+                <label className={labelClass}>Relationship</label>
+                <div className="mt-1 flex gap-2">
+                  <select
+                    value={form.referredRelation}
+                    onChange={(e) => setForm({ ...form, referredRelation: e.target.value })}
+                    className="flex-1 border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Select relationship</option>
+                    {availableRelationships.map((rel) => (
+                      <option key={rel.id} value={rel.name}>
+                        {rel.name}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={addRelationship}
+                    className="text-sm text-blue-600 hover:underline whitespace-nowrap self-center"
+                  >
+                    + Add New
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className={labelClass}>Referred Patient (optional)</label>
+                <div className="mt-1 relative">
+                  <input
+                    type="text"
+                    placeholder="Search by name, ID, or phone..."
+                    value={patientSearchQuery}
+                    onChange={(e) => searchPatients(e.target.value)}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  {patientSearchResults.length > 0 && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                      {patientSearchResults.map((p) => (
+                        <button
+                          key={p.patientId}
+                          type="button"
+                          onClick={() => {
+                            setForm((prev) => ({ ...prev, referredPatientId: p.patientId }));
+                            setPatientSearchQuery(`${p.name} (${p.patientId})`);
+                            setPatientSearchResults([]);
+                          }}
+                          className="w-full text-left px-4 py-2 hover:bg-gray-100 border-b border-gray-100 last:border-0"
+                        >
+                          <p className="font-medium text-sm">{p.name}</p>
+                          <p className="text-xs text-gray-500">
+                            {p.patientId} | {p.primaryPhone} | {p.gender}
+                            {p.age ? `, ${p.age} yrs` : ''}
+                          </p>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {form.referredPatientId && (
+                  <p className="mt-1 text-xs text-green-600">
+                    Patient linked: {form.referredPatientId}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Contact Details */}

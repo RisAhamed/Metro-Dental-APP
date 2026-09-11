@@ -17,6 +17,8 @@ export interface EditablePatient {
   anniversary: string | null;
   address: { street: string; locality: string; city: string; pincode: string } | null;
   referredByName: string | null;
+  referredRelation: string | null;
+  referredPatientId: string | null;
   medicalHistory: string[];
   otherHistory: string | null;
   groups: string[];
@@ -185,6 +187,8 @@ export function PatientProfileEdit({
     anniversary: toDateInput(patient.anniversary),
     languagePreference: patient.languagePreference || 'English',
     referredByName: patient.referredByName || '',
+    referredRelation: patient.referredRelation || '',
+    referredPatientId: patient.referredPatientId || '',
     street: patient.address?.street || '',
     locality: patient.address?.locality || '',
     city: patient.address?.city || '',
@@ -216,6 +220,10 @@ export function PatientProfileEdit({
     () => new Set(patient.groups || [])
   );
   const [allGroups, setAllGroups] = useState<{ id: string; name: string }[]>([]);
+  const [availableRelationships, setAvailableRelationships] = useState<{ id: string; name: string }[]>([]);
+  const [patientSearchResults, setPatientSearchResults] = useState<{ patientId: string; name: string; gender: string; age: number | null; primaryPhone: string }[]>([]);
+  const [patientSearchQuery, setPatientSearchQuery] = useState(patient.referredPatientId || '');
+  const [showPatientSearch, setShowPatientSearch] = useState(!!patient.referredByName && patient.referredByName === 'Family');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -223,15 +231,18 @@ export function PatientProfileEdit({
     let cancelled = false;
     const load = async () => {
       try {
-        const [condRes, groupRes] = await Promise.all([
+        const [condRes, groupRes, relRes] = await Promise.all([
           fetch('/api/medical-conditions'),
           fetch(`/api/patient-groups?clinicId=${clinicId}`),
+          fetch('/api/referral-relationships'),
         ]);
         const condData = await condRes.json();
         const groupData = await groupRes.json();
+        const relData = await relRes.json();
         if (!cancelled) {
           setConditionSuggestions((condData.conditions || []).map((c: { name: string }) => c.name));
           setAllGroups(groupData.groups || []);
+          setAvailableRelationships(relData.relationships || []);
         }
       } catch {
         // Non-blocking: manual entry still works
@@ -269,6 +280,21 @@ export function PatientProfileEdit({
 
   const toggleSection = (key: string) =>
     setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
+
+  const searchPatients = async (query: string) => {
+    setPatientSearchQuery(query);
+    if (query.length < 2) {
+      setPatientSearchResults([]);
+      return;
+    }
+    try {
+      const res = await fetch(`/api/patients/search?q=${encodeURIComponent(query)}`);
+      const data = await res.json();
+      setPatientSearchResults(data.patients || []);
+    } catch (error) {
+      console.error('Error searching patients:', error);
+    }
+  };
 
   // Generic tag helpers for diseases / allergies
   const addTag = (
@@ -311,6 +337,8 @@ export function PatientProfileEdit({
           pastDiseases: diseases,
           allergies,
           previousMedicineIntake: form.previousMedicineIntake || null,
+          referredRelation: form.referredRelation || null,
+          referredPatientId: form.referredPatientId || null,
           baselineVitals: {
             heightCm: form.heightCm === '' ? null : Number(form.heightCm),
             weightKg: form.weightKg === '' ? null : Number(form.weightKg),
@@ -434,6 +462,29 @@ export function PatientProfileEdit({
                       {g.name}
                     </button>
                   ))}
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const name = prompt('Enter new group name:');
+                      if (!name) return;
+                      const res = await fetch('/api/patient-groups', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name, clinicId }),
+                      });
+                      if (res.ok) {
+                        const data = await res.json();
+                        setAllGroups((prev) => [...prev, data.group]);
+                        setSelectedGroups((prev) => new Set([...prev, data.group.id]));
+                      } else {
+                        const data = await res.json();
+                        alert(data.error || 'Failed to add group');
+                      }
+                    }}
+                    className="px-3 py-1.5 text-xs rounded-full border border-dashed border-blue-400 text-blue-600 hover:bg-blue-50"
+                  >
+                    + Add New Group
+                  </button>
                 </div>
               )}
             </div>
@@ -460,9 +511,51 @@ export function PatientProfileEdit({
               <div>
                 <label className={labelCls}>Referred By</label>
                 <input className={inputCls} value={form.referredByName}
-                  onChange={(e) => setField('referredByName', e.target.value)} />
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setField('referredByName', val);
+                    setShowPatientSearch(val === 'Family');
+                  }} />
               </div>
             </div>
+            {showPatientSearch && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+                <div>
+                  <label className={labelCls}>Relationship</label>
+                  <select className={inputCls} value={form.referredRelation}
+                    onChange={(e) => setField('referredRelation', e.target.value)}>
+                    <option value="">Select relationship</option>
+                    {availableRelationships.map((rel) => (
+                      <option key={rel.id} value={rel.name}>{rel.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className={labelCls}>Referred Patient</label>
+                  <div className="relative">
+                    <input className={inputCls} placeholder="Search by name, ID, or phone..."
+                      value={patientSearchQuery}
+                      onChange={(e) => searchPatients(e.target.value)} />
+                    {patientSearchResults.length > 0 && (
+                      <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto">
+                        {patientSearchResults.map((p) => (
+                          <button key={p.patientId} type="button"
+                            onClick={() => {
+                              setField('referredPatientId', p.patientId);
+                              setPatientSearchQuery(`${p.name} (${p.patientId})`);
+                              setPatientSearchResults([]);
+                            }}
+                            className="w-full text-left px-3 py-2 hover:bg-gray-100 text-sm">
+                            <p className="font-medium">{p.name}</p>
+                            <p className="text-xs text-gray-500">{p.patientId} | {p.primaryPhone}</p>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mt-3">
               <div>
                 <label className={labelCls}>Street</label>

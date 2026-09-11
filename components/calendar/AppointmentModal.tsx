@@ -16,6 +16,18 @@ interface Category {
   color: string;
 }
 
+interface ReferralSource {
+  id: string;
+  name: string;
+  isActive: boolean;
+}
+
+interface ReferralSubtype {
+  id: string;
+  name: string;
+  isActive: boolean;
+}
+
 interface Patient {
   patientId: string;
   name: string;
@@ -86,7 +98,8 @@ export function AppointmentModal({
     isWalkIn: appointment?.isWalkIn || prefill?.isWalkIn || false,
     tokenNumber: appointment?.tokenNumber || '',
     abhaId: appointment?.abhaId || '',
-    plannedProcedures: appointment?.plannedProcedures || '',
+    referralSourceId: appointment?.referralSourceId || '',
+    referralSubType: appointment?.referralSubType || '',
     notes: appointment?.notes || '',
   });
 
@@ -103,6 +116,12 @@ export function AppointmentModal({
   const [localDoctors, setLocalDoctors] = useState<Doctor[]>([]);
   const allDoctors = doctors.length > 0 ? doctors : localDoctors;
   const [status, setStatus] = useState(appointment?.status || 'SCHEDULED');
+  const [referralSources, setReferralSources] = useState<ReferralSource[]>([]);
+  const [referralSubtypes, setReferralSubtypes] = useState<ReferralSubtype[]>([]);
+  const [showAddReferral, setShowAddReferral] = useState(false);
+  const [newReferralName, setNewReferralName] = useState('');
+  const [showAddSubtype, setShowAddSubtype] = useState(false);
+  const [newSubtypeName, setNewSubtypeName] = useState('');
 
   // New-patient toggle (only for fresh bookings, not edits)
   const [patientMode, setPatientMode] = useState<'EXISTING' | 'NEW'>('EXISTING');
@@ -133,6 +152,28 @@ export function AppointmentModal({
       cancelled = true;
     };
   }, [clinicId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const [srcRes, subRes] = await Promise.all([
+          fetch('/api/referral-sources?all=true'),
+          fetch('/api/referral-subtypes?all=true'),
+        ]);
+        const srcData = await srcRes.json();
+        const subData = await subRes.json();
+        if (!cancelled) {
+          setReferralSources(srcData.sources || []);
+          setReferralSubtypes(subData.subtypes || []);
+        }
+      } catch {
+        // empty
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, []);
 
   // Self-fetch doctors when not provided (e.g., opened from patient profile)
   useEffect(() => {
@@ -184,6 +225,46 @@ export function AppointmentModal({
       if (searchTimer.current) clearTimeout(searchTimer.current);
     };
   }, []);
+
+  const handleAddReferralSource = async () => {
+    if (!newReferralName.trim()) return;
+    try {
+      const res = await fetch('/api/referral-sources', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newReferralName.trim() }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setReferralSources((prev) => [...prev, data.source]);
+        setForm({ ...form, referralSourceId: data.source.id });
+        setNewReferralName('');
+        setShowAddReferral(false);
+      }
+    } catch {
+      // empty
+    }
+  };
+
+  const handleAddSubtype = async () => {
+    if (!newSubtypeName.trim()) return;
+    try {
+      const res = await fetch('/api/referral-subtypes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newSubtypeName.trim() }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setReferralSubtypes((prev) => [...prev, data.subtype]);
+        setForm({ ...form, referralSubType: data.subtype.id });
+        setNewSubtypeName('');
+        setShowAddSubtype(false);
+      }
+    } catch {
+      // empty
+    }
+  };
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -287,6 +368,8 @@ export function AppointmentModal({
         appointmentDate: dateTime.toISOString(),
         doctorName: selectedDoctor?.name || form.doctorName,
         clinicId,
+        referralSourceId: form.referralSourceId || null,
+        referralSubType: form.referralSubType || null,
       };
 
       if (appointment) {
@@ -307,8 +390,10 @@ export function AppointmentModal({
             categoryColor: form.categoryColor || null,
             isWalkIn: form.isWalkIn,
             tokenNumber: form.tokenNumber || null,
-            plannedProcedures: form.plannedProcedures || null,
+            plannedProcedures: null,
             notes: form.notes || null,
+            referralSourceId: form.referralSourceId || null,
+            referralSubType: form.referralSubType || null,
           }),
         });
         if (res.ok) {
@@ -708,16 +793,101 @@ export function AppointmentModal({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Planned Procedures
-                </label>
-                <input
-                  type="text"
-                  value={form.plannedProcedures}
-                  onChange={(e) => setForm({ ...form, plannedProcedures: e.target.value })}
-                  className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
-                />
+                <label className="block text-sm font-medium text-gray-700">Referred By</label>
+                <div className="mt-1 flex gap-2">
+                  <div className="flex-1 relative">
+                    <select
+                      value={form.referralSourceId}
+                      onChange={(e) => setForm({ ...form, referralSourceId: e.target.value, referralSubType: '' })}
+                      className="block w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                    >
+                      <option value="">Select Referral Source</option>
+                      {referralSources.filter((s) => s.isActive).map((src) => (
+                        <option key={src.id} value={src.id}>{src.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowAddReferral(true)}
+                    className="px-2 py-1 text-xs bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200 whitespace-nowrap"
+                  >
+                    + Add New
+                  </button>
+                </div>
+                {showAddReferral && (
+                  <div className="mt-1 flex gap-2">
+                    <input
+                      autoFocus
+                      value={newReferralName}
+                      onChange={(e) => setNewReferralName(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') handleAddReferralSource(); if (e.key === 'Escape') setShowAddReferral(false); }}
+                      placeholder="New referral source name"
+                      className="flex-1 border border-gray-300 rounded-md px-3 py-1.5 text-sm"
+                    />
+                    <button type="button" onClick={handleAddReferralSource} className="px-3 py-1.5 bg-blue-600 text-white text-xs rounded-md hover:bg-blue-700">Add</button>
+                    <button type="button" onClick={() => { setShowAddReferral(false); setNewReferralName(''); }} className="px-3 py-1.5 bg-gray-100 text-xs rounded-md hover:bg-gray-200">Cancel</button>
+                  </div>
+                )}
+
+                {form.referralSourceId && referralSources.find((s) => s.id === form.referralSourceId)?.name === 'Family' && (
+                  <div className="mt-2">
+                    <label className="block text-sm font-medium text-gray-700">Relationship</label>
+                    <div className="mt-1 flex gap-2">
+                      <div className="flex-1">
+                        <select
+                          value={form.referralSubType}
+                          onChange={(e) => setForm({ ...form, referralSubType: e.target.value })}
+                          className="block w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                        >
+                          <option value="">Select Relationship</option>
+                          {referralSubtypes.filter((s) => s.isActive).map((sub) => (
+                            <option key={sub.id} value={sub.id}>{sub.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowAddSubtype(true)}
+                        className="px-2 py-1 text-xs bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200 whitespace-nowrap"
+                      >
+                        + Add New
+                      </button>
+                    </div>
+                    {showAddSubtype && (
+                      <div className="mt-1 flex gap-2">
+                        <input
+                          autoFocus
+                          value={newSubtypeName}
+                          onChange={(e) => setNewSubtypeName(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === 'Enter') handleAddSubtype(); if (e.key === 'Escape') setShowAddSubtype(false); }}
+                          placeholder="New relationship name"
+                          className="flex-1 border border-gray-300 rounded-md px-3 py-1.5 text-sm"
+                        />
+                        <button type="button" onClick={handleAddSubtype} className="px-3 py-1.5 bg-blue-600 text-white text-xs rounded-md hover:bg-blue-700">Add</button>
+                        <button type="button" onClick={() => { setShowAddSubtype(false); setNewSubtypeName(''); }} className="px-3 py-1.5 bg-gray-100 text-xs rounded-md hover:bg-gray-200">Cancel</button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {form.referralSourceId && referralSources.find((s) => s.id === form.referralSourceId)?.name === 'Doctor' && (
+                  <div className="mt-2">
+                    <label className="block text-sm font-medium text-gray-700">Select Doctor</label>
+                    <select
+                      value={form.referralSubType}
+                      onChange={(e) => setForm({ ...form, referralSubType: e.target.value })}
+                      className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                    >
+                      <option value="">Select Doctor</option>
+                      {allDoctors.map((doc) => (
+                        <option key={doc.id} value={doc.id}>{doc.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
               </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700">Notes</label>
                 <textarea

@@ -4,10 +4,12 @@ import { text, timestamp, integer, boolean, numeric, pgEnum } from 'drizzle-orm/
 export const apptStatusEnum = pgEnum('appt_status', [
   'SCHEDULED',
   'CONFIRMED',
+  'WAITING',
+  'ENGAGED',
   'IN_PROGRESS',
   'COMPLETED',
   'CANCELLED',
-  'NO_SHOW'
+  'NO_SHOW',
 ]);
 
 export const appointments = table('appointments', {
@@ -34,6 +36,8 @@ export const appointments = table('appointments', {
   surgeryTypeName: text('surgery_type_name'),
   referredById: text('referred_by_id'),
   referredByName: text('referred_by_name'),
+  referralSourceId: text('referral_source_id'),
+  referralSubType: text('referral_sub_type'),
   isReferral: boolean('is_referral').default(false),
   chiefDoctorRevenue: numeric('chief_doctor_revenue', { precision: 12, scale: 2 }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),

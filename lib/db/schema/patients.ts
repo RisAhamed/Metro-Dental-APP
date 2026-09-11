@@ -39,6 +39,8 @@ export const patients = table('patients', {
   }>(),
   referredById: text('referred_by_id'),
   referredByName: text('referred_by_name'),
+  referredRelation: text('referred_relation'),
+  referredPatientId: text('referred_patient_id'),
   medicalHistory: text('medical_history').array().default([]), // array of condition names
   otherHistory: text('other_history'),
   // Enhanced medical profile

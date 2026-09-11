@@ -16,12 +16,15 @@ export async function PUT(
 
   const { noteId } = await params;
   const body = await req.json();
-  const { chiefComplaints, observations, diagnoses, investigations, notes } = body;
+  const { doctorId, doctorName, date, chiefComplaints, observations, diagnoses, investigations, notes } = body;
 
   try {
     const result = await db
       .update(clinicalNotes)
       .set({
+        doctorId,
+        doctorName,
+        date: date ? new Date(date) : undefined,
         chiefComplaints,
         observations,
         diagnoses,

@@ -6,7 +6,7 @@ import { patients } from '@/lib/db/schema/patients';
 import { isStaff } from '@/lib/auth/claims';
 import { and, eq, gte, lt, inArray } from 'drizzle-orm';
 
-const ACTIVE_STATUSES = ['SCHEDULED', 'CONFIRMED', 'IN_PROGRESS', 'COMPLETED'] as const;
+const ACTIVE_STATUSES = ['SCHEDULED', 'CONFIRMED', 'WAITING', 'ENGAGED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED', 'NO_SHOW'] as const;
 
 export async function GET(req: NextRequest) {
   const { sessionClaims } = await auth();
@@ -62,8 +62,8 @@ export async function GET(req: NextRequest) {
 
     const stats = {
       TODAY: results.length,
-      WAITING: results.filter((r) => r.status === 'SCHEDULED' || r.status === 'CONFIRMED').length,
-      ENGAGED: results.filter((r) => r.status === 'IN_PROGRESS').length,
+      WAITING: results.filter((r) => r.status === 'WAITING').length,
+      ENGAGED: results.filter((r) => r.status === 'ENGAGED' || r.status === 'IN_PROGRESS').length,
       DONE: results.filter((r) => r.status === 'COMPLETED').length,
     };
 

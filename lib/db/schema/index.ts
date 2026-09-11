@@ -42,3 +42,4 @@ export * from './prescriptions';
 export * from './invoices';
 export * from './clinicalNotes';
 export * from './clinicalNoteLookups';
+export * from './referralSubtypes';

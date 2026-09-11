@@ -15,6 +15,8 @@ export interface CalendarAppointment {
   abhaId?: string | null;
   plannedProcedures?: string | null;
   notes?: string | null;
+  referralSourceId?: string | null;
+  referralSubType?: string | null;
 }
 
 export interface CalendarStats {

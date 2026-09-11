@@ -326,6 +326,10 @@ export default function CalendarPage() {
     }
   };
 
+  const handleSidebarDateChange = (date: Date) => {
+    setSelectedDate(startOfDay(date));
+  };
+
   const weekStart = useMemo(
     () => startOfDay(currentDate),
     [currentDate]
@@ -564,6 +568,9 @@ export default function CalendarPage() {
           onWalkIn={handleWalkIn}
           onStatusChange={handleStatusChange}
           onAppointmentClick={handleAppointmentClick}
+          onDateChange={handleSidebarDateChange}
+          onHoverOpen={handleHoverOpen}
+          onHoverClose={handleHoverClose}
         />
       )}
 
