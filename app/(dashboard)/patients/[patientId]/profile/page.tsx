@@ -773,6 +773,7 @@ export default function PatientProfilePage() {
       case 'LEDGER':
         return (
           <PatientLedger
+            patientId={patientId}
             patient={patient}
             summary={{
               totalInvoiced: derivedInvoices.reduce((s, i) => s + i.total, 0),

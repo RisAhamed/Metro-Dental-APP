@@ -56,6 +56,8 @@ export async function POST(
 
     const notes = (formData.get('notes') as string | null)?.trim() || null;
     const visitId = (formData.get('visitId') as string | null)?.trim() || null;
+    const tagsJson = (formData.get('tags') as string | null) || '[]';
+    const tags: string[] = JSON.parse(tagsJson);
     const clinicId =
       (formData.get('clinicId') as string | null) || getPrimaryClinicId(sessionClaims);
 
@@ -99,6 +101,7 @@ export async function POST(
       fileSize: String(file.size),
       notes,
       visitId,
+      tags,
       uploadedBy: userId,
       uploadedByName: userSnap[0]?.name || 'Staff',
     });

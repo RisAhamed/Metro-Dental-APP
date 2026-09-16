@@ -10,7 +10,8 @@ export const patientFiles = table('patient_files', {
   fileType: text('file_type'),
   fileSize: text('file_size'),
   notes: text('notes'),
-  visitId: text('visit_id'), // optional association with a session
+  visitId: text('visit_id'),
+  tags: text('tags').array().default([]),
   uploadedBy: text('uploaded_by').notNull(),
   uploadedByName: text('uploaded_by_name').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),

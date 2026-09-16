@@ -45,8 +45,9 @@ export default function InvoiceDetailPage() {
   const [clinic, setClinic] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
-  const [updatingPayment, setUpdatingPayment] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [amountPaid, setAmountPaid] = useState(0);
+  const [saving, setSaving] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
   const pdfRef = useRef<HTMLDivElement>(null);
 
@@ -59,6 +60,7 @@ export default function InvoiceDetailPage() {
           setInvoice(data.invoice);
           setPatient(data.patient);
           setClinic(data.clinic);
+          setAmountPaid(parseFloat(data.invoice.amountPaid) || 0);
         } else setNotFound(true);
       } catch {
         setNotFound(true);
@@ -170,21 +172,22 @@ export default function InvoiceDetailPage() {
     }
   }, [invoice]);
 
-  const handlePaymentUpdate = async (status: string) => {
-    setUpdatingPayment(true);
+  const handleSavePayment = async () => {
+    if (!invoice) return;
+    setSaving(true);
     try {
-      const res = await fetch(`/api/invoices/${invoiceId}/payment`, {
+      const res = await fetch(`/api/invoices/${invoiceId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ paymentStatus: status }),
+        body: JSON.stringify({ amountPaid }),
       });
       const data = await res.json();
       if (res.ok) setInvoice(data.invoice);
-      else alert(data.error || 'Failed to update payment status');
+      else alert(data.error || 'Failed to save payment');
     } catch {
-      alert('Failed to update payment status');
+      alert('Failed to save payment');
     } finally {
-      setUpdatingPayment(false);
+      setSaving(false);
     }
   };
 
@@ -200,6 +203,11 @@ export default function InvoiceDetailPage() {
     );
   }
 
+  const grandTotal = parseFloat(invoice.grandTotal) || 0;
+  const balanceDue = Math.max(0, grandTotal - amountPaid);
+  const calculatedStatus = amountPaid >= grandTotal ? 'PAID' : amountPaid > 0 ? 'PARTIALLY_PAID' : 'UNPAID';
+  const hasChanges = amountPaid !== (parseFloat(invoice.amountPaid) || 0);
+
   return (
     <div className="max-w-4xl mx-auto space-y-4">
       <div className="flex items-center justify-between print:hidden no-print">
@@ -210,16 +218,6 @@ export default function InvoiceDetailPage() {
           <ArrowLeft className="h-4 w-4" /> Back
         </button>
         <div className="flex items-center gap-2">
-          <select
-            value={invoice.paymentStatus}
-            onChange={(e) => handlePaymentUpdate(e.target.value)}
-            disabled={updatingPayment}
-            className="px-3 py-2 border border-gray-300 rounded-md text-sm"
-          >
-            <option value="UNPAID">UNPAID</option>
-            <option value="PARTIALLY_PAID">PARTIALLY_PAID</option>
-            <option value="PAID">PAID</option>
-          </select>
           <button
             onClick={handlePrint}
             className="flex items-center gap-1 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-md text-sm hover:bg-gray-50"
@@ -236,24 +234,62 @@ export default function InvoiceDetailPage() {
         </div>
       </div>
 
-      {/* Payment status badge */}
-      <div className="bg-white rounded-lg shadow p-4 flex items-center gap-2 print:hidden no-print">
-        <CreditCard className="h-5 w-5 text-blue-500" />
-        <span className="text-sm font-medium">Payment Status:</span>
-        <span
-          className={`px-2 py-0.5 text-xs rounded-full font-semibold ${
-            invoice.paymentStatus === 'PAID'
-              ? 'bg-green-100 text-green-700'
-              : invoice.paymentStatus === 'PARTIALLY_PAID'
-                ? 'bg-yellow-100 text-yellow-700'
-                : 'bg-red-100 text-red-700'
-          }`}
-        >
-          {invoice.paymentStatus}
-        </span>
-        <span className="text-sm text-gray-500 ml-auto">
-          Amount Paid: ₹{Number(invoice.amountPaid).toLocaleString('en-IN')} / ₹{Number(invoice.grandTotal).toLocaleString('en-IN')}
-        </span>
+      {/* Payment status badge + Amount Paid input */}
+      <div className="bg-white rounded-lg shadow p-4 print:hidden no-print">
+        <div className="flex items-center gap-2 mb-4">
+          <CreditCard className="h-5 w-5 text-blue-500" />
+          <span className="text-sm font-medium">Payment Status:</span>
+          <span
+            className={`px-2 py-0.5 text-xs rounded-full font-semibold ${
+              calculatedStatus === 'PAID'
+                ? 'bg-green-100 text-green-700'
+                : calculatedStatus === 'PARTIALLY_PAID'
+                  ? 'bg-yellow-100 text-yellow-700'
+                  : 'bg-red-100 text-red-700'
+            }`}
+          >
+            {calculatedStatus}
+          </span>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Amount Paid</label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">₹</span>
+              <input
+                type="number"
+                value={amountPaid}
+                onChange={(e) => setAmountPaid(Math.max(0, parseFloat(e.target.value) || 0))}
+                min="0"
+                step="0.01"
+                className="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-md text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Balance Due</label>
+            <div className={`px-3 py-2 rounded-md text-sm font-semibold ${balanceDue > 0 ? 'text-red-600 bg-red-50' : 'text-green-600 bg-green-50'}`}>
+              ₹{balanceDue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Grand Total</label>
+            <div className="px-3 py-2 rounded-md text-sm font-semibold text-gray-900 bg-gray-50">
+              ₹{grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
+          </div>
+        </div>
+        {hasChanges && (
+          <div className="mt-4 flex justify-end">
+            <button
+              onClick={handleSavePayment}
+              disabled={saving}
+              className="flex items-center gap-1 px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            >
+              {saving ? 'Saving...' : 'Save Payment'}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* On-screen invoice (responsive) */}
