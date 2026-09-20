@@ -169,6 +169,13 @@
       "when": 1789124526652,
       "tag": "0023_curved_wendigo",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1789897221398,
+      "tag": "0024_yielding_menace",
+      "breakpoints": true
     }
   ]
 }

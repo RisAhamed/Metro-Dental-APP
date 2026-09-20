@@ -22,6 +22,7 @@ import { defaultLabStageTemplates } from './labStageTemplates';
 import { labStageTemplates } from '@/lib/db/schema/labStageTemplates';
 import { defaultLabShades } from './labShades';
 import { labShades } from '@/lib/db/schema/labShades';
+import { seedDrugs } from './drugs';
 import { sql, isNull } from 'drizzle-orm';
 
 export const slugify = (name: string) => name.toLowerCase().replace(/[^a-z0-9]/g, '-');
@@ -228,6 +229,7 @@ export async function seedAllData(clinicId: string, createdBy = 'system') {
     workTypes,
     stageTemplates,
     shades,
+    drugCount,
   ] = await Promise.all([
     seedReferralSources(),
     seedMedicalConditions(),
@@ -241,6 +243,7 @@ export async function seedAllData(clinicId: string, createdBy = 'system') {
     seedLabWorkTypes(),
     seedLabStageTemplates(),
     seedLabShades(),
+    seedDrugs(),
   ]);
 
   return {
@@ -256,5 +259,6 @@ export async function seedAllData(clinicId: string, createdBy = 'system') {
     workTypes,
     stageTemplates,
     shades,
+    drugs: drugCount,
   };
 }

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { db } from '@/lib/db';
-import { prescriptions } from '@/lib/db/schema/prescriptions';
+import { prescriptions, type PrescriptionMedicine } from '@/lib/db/schema/prescriptions';
 import { isStaff, canManageClinical } from '@/lib/auth/claims';
 import { desc, eq, sql } from 'drizzle-orm';
 
@@ -19,6 +19,39 @@ function validateDrugs(drugs: unknown): drugs is DrugInput[] {
     drugs.length > 0 &&
     drugs.every((d) => typeof d === 'object' && d !== null && !!String((d as DrugInput).drugName || '').trim())
   );
+}
+
+function normalizeMedicines(body: { medicines?: unknown; drugs?: unknown }): PrescriptionMedicine[] | null {
+  if (Array.isArray(body.medicines) && body.medicines.length > 0) {
+    const medicines = body.medicines as Array<Partial<PrescriptionMedicine>>;
+    if (medicines.some((m) => !String(m.drugName || '').trim())) return null;
+    return medicines.map((m) => ({
+      drugName: String(m.drugName).trim(),
+      strength: m.strength ? String(m.strength).trim() : null,
+      strengthUnit: m.strengthUnit ? String(m.strengthUnit).trim() : null,
+      duration: m.duration ? String(m.duration).trim() : null,
+      durationUnit: m.durationUnit ? String(m.durationUnit).trim() : null,
+      morning: m.morning ? String(m.morning).trim() : null,
+      noon: m.noon ? String(m.noon).trim() : null,
+      night: m.night ? String(m.night).trim() : null,
+      beforeAfterFood: m.beforeAfterFood ? String(m.beforeAfterFood).trim() : null,
+      instruction: m.instruction ? String(m.instruction).trim() : null,
+    }));
+  }
+
+  if (!validateDrugs(body.drugs)) return null;
+  return body.drugs.map((d) => ({
+    drugName: String(d.drugName).trim(),
+    strength: d.dosage?.trim() || null,
+    strengthUnit: null,
+    duration: d.duration?.trim() || null,
+    durationUnit: null,
+    morning: null,
+    noon: null,
+    night: null,
+    beforeAfterFood: null,
+    instruction: d.instructions?.trim() || d.frequency?.trim() || null,
+  }));
 }
 
 export async function GET(
@@ -58,10 +91,11 @@ export async function POST(
 
   const { patientId } = await params;
   const body = await req.json();
+  const medicines = normalizeMedicines(body);
 
-  if (!validateDrugs(body.drugs)) {
+  if (!medicines) {
     return NextResponse.json(
-      { error: 'At least one drug with a name is required' },
+      { error: 'At least one medicine with a name is required' },
       { status: 400 }
     );
   }
@@ -86,13 +120,16 @@ export async function POST(
       date: body.date ? new Date(body.date) : new Date(),
       doctorId: body.doctorId || null,
       doctorName: body.doctorName || null,
-      drugs: body.drugs.map((d: DrugInput) => ({
-        drugName: String(d.drugName).trim(),
-        dosage: d.dosage?.trim() || null,
-        frequency: d.frequency?.trim() || null,
-        duration: d.duration?.trim() || null,
-        instructions: d.instructions?.trim() || null,
+      drugs: medicines.map((m) => ({
+        drugName: m.drugName,
+        dosage: [m.strength, m.strengthUnit].filter(Boolean).join(' ') || null,
+        frequency: [m.morning, m.noon, m.night].some(Boolean)
+          ? [m.morning || '0', m.noon || '0', m.night || '0'].join('-')
+          : null,
+        duration: [m.duration, m.durationUnit].filter(Boolean).join(' ') || m.duration,
+        instructions: m.instruction,
       })),
+      medicines,
       notes: body.notes?.trim() || null,
       createdBy: userId,
     });

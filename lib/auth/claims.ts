@@ -130,3 +130,15 @@ export function canManageClinical(claims: unknown): boolean {
     'ASSISTANT_DOCTOR',
   ].includes(normalize(claims)?.role || '');
 }
+
+export function canDeletePrescriptionTemplate(
+  claims: unknown,
+  userId: string | null | undefined,
+  creatorId: string
+): boolean {
+  return (
+    isSuperAdmin(claims) ||
+    isClinicAdmin(claims) ||
+    (getUserRole(claims) === 'GENERAL_DOCTOR' && userId === creatorId)
+  );
+}

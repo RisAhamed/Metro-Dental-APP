@@ -1,5 +1,19 @@
 import { cockroachTable as table } from './cockroachTable';
+import { sql } from 'drizzle-orm';
 import { text, timestamp, jsonb } from 'drizzle-orm/pg-core';
+
+export interface PrescriptionMedicine {
+  drugName: string;
+  strength: string | null;
+  strengthUnit: string | null;
+  duration: string | null;
+  durationUnit: string | null;
+  morning: string | null;
+  noon: string | null;
+  night: string | null;
+  beforeAfterFood: string | null;
+  instruction: string | null;
+}
 
 export const prescriptions = table('prescriptions', {
   prescriptionId: text('prescription_id').primaryKey().notNull(),
@@ -18,6 +32,7 @@ export const prescriptions = table('prescriptions', {
       instructions: string | null;
     }>
   >().notNull(),
+  medicines: jsonb('medicines').$type<PrescriptionMedicine[]>().default(sql`'[]'::jsonb`).notNull(),
   notes: text('notes'),
   createdBy: text('created_by').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),

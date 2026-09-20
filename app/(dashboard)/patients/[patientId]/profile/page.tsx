@@ -211,7 +211,7 @@ export default function PatientProfilePage() {
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { sessionClaims } = useAuth();
+  const { sessionClaims, userId } = useAuth();
 
   const [patient, setPatient] = useState<Patient | null>(null);
   const [groups, setGroups] = useState<Group[]>([]);
@@ -645,6 +645,8 @@ export default function PatientProfilePage() {
             clinicId={clinicId}
             patientName={patient.name}
             canEdit={canFullEdit}
+            userRole={role}
+            userId={userId || ''}
           />
         );
 

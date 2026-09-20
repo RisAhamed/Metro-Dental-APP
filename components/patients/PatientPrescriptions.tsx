@@ -1,14 +1,18 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Pill, Plus, Pencil, Trash2, Printer } from 'lucide-react';
-import { EmptyState, formatDateDDMMM } from './shared';
+import { useEffect, useState } from 'react';
+import { Pill, Plus } from 'lucide-react';
+import { EmptyState } from './shared';
 import { PrescriptionForm } from '@/components/prescriptions/PrescriptionForm';
+import { PrescriptionList } from '@/components/prescriptions/PrescriptionList';
+import { PrescriptionDetail } from '@/components/prescriptions/PrescriptionDetail';
+import type { PrescriptionMedicine } from '@/lib/db/schema/prescriptions';
 
 export interface PrescriptionEntry {
   prescriptionId: string;
   date: string;
   doctorName: string | null;
+  medicines: PrescriptionMedicine[];
   drugs: Array<{
     drugName: string;
     dosage: string | null;
@@ -24,6 +28,8 @@ interface PatientPrescriptionsProps {
   clinicId: string;
   patientName: string;
   canEdit: boolean;
+  userRole?: string;
+  userId?: string;
 }
 
 export function PatientPrescriptions({
@@ -31,11 +37,14 @@ export function PatientPrescriptions({
   clinicId,
   patientName,
   canEdit,
+  userRole,
+  userId,
 }: PatientPrescriptionsProps) {
   const [prescriptions, setPrescriptions] = useState<PrescriptionEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
   const [editingRx, setEditingRx] = useState<PrescriptionEntry | null>(null);
+  const [detailRx, setDetailRx] = useState<PrescriptionEntry | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -44,8 +53,6 @@ export function PatientPrescriptions({
         const res = await fetch(`/api/patients/${patientId}/prescriptions`);
         const data = await res.json();
         if (!cancelled) setPrescriptions(data.prescriptions || []);
-      } catch {
-        // empty
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -68,70 +75,16 @@ export function PatientPrescriptions({
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Delete this prescription?')) return;
-    try {
-      const res = await fetch(`/api/prescriptions/${encodeURIComponent(id)}`, { method: 'DELETE' });
-      if (res.ok) setPrescriptions((prev) => prev.filter((p) => p.prescriptionId !== id));
-      else {
-        const data = await res.json();
-        alert(data.error || 'Failed to delete');
-      }
-    } catch {
-      alert('Failed to delete prescription');
-    }
+    const res = await fetch(`/api/prescriptions/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    if (res.ok) setPrescriptions((prev) => prev.filter((p) => p.prescriptionId !== id));
   };
 
-  const printRx = (rx: PrescriptionEntry) => {
-    const win = window.open('', '_blank', 'width=800,height=600');
-    if (!win) return;
-    const drugRows = rx.drugs
-      .map(
-        (d, i) => `<tr>
-          <td>${i + 1}</td>
-          <td><strong>${d.drugName}</strong></td>
-          <td>${d.dosage || '—'}</td>
-          <td>${d.frequency || '—'}</td>
-          <td>${d.duration || '—'}</td>
-          <td>${d.instructions || '—'}</td>
-        </tr>`
-      )
-      .join('');
-    win.document.write(`<!DOCTYPE html><html><head><title>Prescription ${rx.prescriptionId}</title>
-      <style>
-        body { font-family: Arial, sans-serif; padding: 32px; color: #1a1a1a; }
-        h1 { font-size: 20px; margin-bottom: 2px; }
-        .meta { color: #666; font-size: 13px; margin-bottom: 20px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 16px; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 13px; }
-        th { background: #f5f5f5; text-transform: uppercase; font-size: 11px; letter-spacing: 0.4px; }
-        .notes { margin-top: 16px; font-size: 13px; }
-        .footer { margin-top: 48px; font-size: 13px; }
-      </style></head><body>
-      <h1>Prescription ${rx.prescriptionId}</h1>
-      <div class="meta">
-        Patient: <strong>${patientName}</strong> (${patientId})<br/>
-        Date: ${formatDateDDMMM(rx.date)}<br/>
-        Doctor: ${rx.doctorName ? `Dr. ${rx.doctorName}` : '—'}
-      </div>
-      <table>
-        <thead><tr><th>#</th><th>Medicine</th><th>Dosage</th><th>Frequency</th><th>Duration</th><th>Instructions</th></tr></thead>
-        <tbody>${drugRows}</tbody>
-      </table>
-      ${rx.notes ? `<div class="notes"><strong>Notes:</strong> ${rx.notes}</div>` : ''}
-      <div class="footer">_______________________<br/>Signature</div>
-      </body></html>`);
-    win.document.close();
-    win.focus();
-    win.print();
-  };
-
-  const showForm =
-    formOpen || (editingRx && canEdit);
+  const showForm = formOpen || (editingRx && canEdit);
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="font-semibold text-gray-700 flex items-center gap-2">
+      <div className="mb-4 flex items-center justify-between">
+        <h3 className="flex items-center gap-2 font-semibold text-gray-700">
           <Pill className="h-5 w-5 text-blue-500" /> Prescriptions
         </h3>
         {canEdit && !showForm && (
@@ -140,7 +93,7 @@ export function PatientPrescriptions({
               setEditingRx(null);
               setFormOpen(true);
             }}
-            className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"
+            className="flex items-center gap-1 rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700"
           >
             <Plus className="h-4 w-4" /> New Prescription
           </button>
@@ -159,6 +112,7 @@ export function PatientPrescriptions({
                     prescriptionId: editingRx.prescriptionId,
                     date: editingRx.date.slice(0, 10),
                     doctorName: editingRx.doctorName || '',
+                    medicines: editingRx.medicines,
                     drugs: editingRx.drugs,
                     notes: editingRx.notes,
                   }
@@ -169,6 +123,9 @@ export function PatientPrescriptions({
               setEditingRx(null);
             }}
             onSaved={upsert}
+            canManageTemplates={canEdit}
+            userRole={userRole}
+            userId={userId}
           />
         </div>
       )}
@@ -178,62 +135,23 @@ export function PatientPrescriptions({
       ) : prescriptions.length === 0 ? (
         <EmptyState icon={Pill} message="No prescriptions recorded yet." />
       ) : (
-        <div className="space-y-3">
-          {prescriptions.map((rx) => (
-            <div
-              key={rx.prescriptionId}
-              className="border border-gray-100 rounded-lg p-4 hover:border-blue-200 transition-colors"
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="text-xs text-gray-400">
-                    {rx.prescriptionId} • {formatDateDDMMM(rx.date)}
-                    {rx.doctorName ? ` • Dr. ${rx.doctorName}` : ''}
-                  </p>
-                  <ul className="mt-1.5 space-y-0.5">
-                    {rx.drugs.map((d, i) => (
-                      <li key={i} className="text-sm text-gray-800">
-                        <span className="font-medium">{d.drugName}</span>
-                        <span className="text-gray-500">
-                          {[d.dosage, d.frequency, d.duration].filter(Boolean).length > 0 &&
-                            ` — ${[d.dosage, d.frequency, d.duration].filter(Boolean).join(', ')}`}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                  {rx.notes && <p className="text-xs text-gray-400 mt-1 italic">{rx.notes}</p>}
-                </div>
-                <div className="flex items-center gap-1 flex-shrink-0">
-                  <button
-                    onClick={() => printRx(rx)}
-                    title="Print"
-                    className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md"
-                  >
-                    <Printer className="h-4 w-4" />
-                  </button>
-                  {canEdit && (
-                    <>
-                      <button
-                        onClick={() => setEditingRx(rx)}
-                        title="Edit"
-                        className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md"
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(rx.prescriptionId)}
-                        title="Delete"
-                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
+        <PrescriptionList
+          prescriptions={prescriptions}
+          canEdit={canEdit}
+          canDelete={userRole === 'SUPER_ADMIN'}
+          onEdit={setEditingRx}
+          onDelete={handleDelete}
+          onOpen={setDetailRx}
+        />
+      )}
+
+      {detailRx && (
+        <PrescriptionDetail
+          prescription={detailRx}
+          patientId={patientId}
+          patientName={patientName}
+          onClose={() => setDetailRx(null)}
+        />
       )}
     </div>
   );
