@@ -24,24 +24,38 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { clinicId, month, year } = body;
+  const { clinicId, month, year, startDate: customStart, endDate: customEnd } = body;
 
-  if (!clinicId || !month || !year) {
+  if (!clinicId || ((!month || !year) && (!customStart || !customEnd))) {
     return NextResponse.json(
-      { error: 'Missing required fields: clinicId, month, year' },
+      { error: 'Missing required fields: clinicId and (month/year or startDate/endDate)' },
       { status: 400 }
     );
   }
 
-  const monthNum = parseInt(month, 10);
-  const yearNum = parseInt(year, 10);
-  if (isNaN(monthNum) || isNaN(yearNum)) {
-    return NextResponse.json({ error: 'Invalid month or year' }, { status: 400 });
-  }
+  let monthNum: number;
+  let yearNum: number;
+  let startDate: string;
+  let endDate: string;
+  let isCustomRange = false;
 
-  const monthStr = String(monthNum).padStart(2, '0');
-  const startDate = `${yearNum}-${monthStr}-01`;
-  const endDate = `${yearNum}-${monthStr}-31`;
+  if (customStart && customEnd) {
+    isCustomRange = true;
+    startDate = customStart;
+    endDate = customEnd;
+    const d = new Date(customStart);
+    monthNum = d.getMonth() + 1;
+    yearNum = d.getFullYear();
+  } else {
+    monthNum = parseInt(month, 10);
+    yearNum = parseInt(year, 10);
+    if (isNaN(monthNum) || isNaN(yearNum)) {
+      return NextResponse.json({ error: 'Invalid month or year' }, { status: 400 });
+    }
+    const monthStr = String(monthNum).padStart(2, '0');
+    startDate = `${yearNum}-${monthStr}-01`;
+    endDate = `${yearNum}-${monthStr}-31`;
+  }
 
   try {
     const settingsResult = await db
@@ -99,7 +113,9 @@ export async function POST(req: NextRequest) {
     let generatedCount = 0;
 
     for (const staffMember of staff) {
-      const payrollId = `${staffMember.uid}_${clinicId}_${yearNum}_${monthStr}`;
+      const payrollId = isCustomRange
+        ? `${staffMember.uid}_${clinicId}_${startDate}_${endDate}`
+        : `${staffMember.uid}_${clinicId}_${yearNum}_${String(monthNum).padStart(2, '0')}`;
 
       const entries = await db
         .select()
@@ -204,7 +220,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: `Monthly payroll generated for ${monthNum}/${yearNum} (${generatedCount} staff)`,
+      message: isCustomRange
+        ? `Payroll generated for ${startDate} to ${endDate} (${generatedCount} staff)`
+        : `Monthly payroll generated for ${monthNum}/${yearNum} (${generatedCount} staff)`,
     });
   } catch (error) {
     console.error('Generate Monthly Payroll Error:', error);

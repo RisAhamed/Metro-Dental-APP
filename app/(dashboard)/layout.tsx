@@ -16,10 +16,9 @@ export default function DashboardLayout({
   if (!isLoaded) return null;
   if (!isSignedIn) redirect('/sign-in');
 
-  // Redirect lab techs and vendors to their portal (we'll implement later)
+  // Redirect lab techs to their portal
   const role = sessionClaims?.role as string;
   if (role === 'LAB_TECHNICIAN') redirect('/portal/lab/orders');
-  if (role === 'VENDOR') redirect('/portal/vendor/orders');
 
   return (
     <SidebarProvider>

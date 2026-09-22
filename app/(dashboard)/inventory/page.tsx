@@ -105,10 +105,10 @@ export default function InventoryPage() {
                 <Truck className="h-4 w-4" /> Vendors
               </Link>
               <Link
-                href="/inventory/purchase-orders"
+                href="/inventory/purchases"
                 className="px-4 py-2 bg-white text-blue-600 border border-blue-200 rounded-md hover:bg-blue-50 flex items-center gap-2"
               >
-                <Link2 className="h-4 w-4" /> Purchase Orders
+                <Link2 className="h-4 w-4" /> Purchases
               </Link>
             </>
           )}
@@ -231,7 +231,7 @@ export default function InventoryPage() {
                   </Link>
                   {isAdmin && (
                     <Link
-                      href={`/inventory/purchase-orders/new?itemId=${item.itemId}`}
+                      href={`/inventory/purchases/new?itemId=${item.itemId}`}
                       className="text-sm text-green-600 hover:underline"
                     >
                       Reorder

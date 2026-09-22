@@ -26,8 +26,9 @@ export interface PayrollExportRow {
 
 export function exportPayrollToExcel(
   data: PayrollExportRow[],
-  month: number,
-  year: number
+  month: number | string,
+  year: number | string,
+  label?: string
 ): XLSX.WorkBook {
   const rows = data.map((p) => {
     const isDoctor = p.userRole === 'GENERAL_DOCTOR' || p.userRole === 'CLINIC_ADMIN';
@@ -68,6 +69,6 @@ export function exportPayrollToExcel(
 
   const ws = XLSX.utils.json_to_sheet(rows);
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, `Payroll ${month}-${year}`);
+  XLSX.utils.book_append_sheet(wb, ws, label || `Payroll ${month}-${year}`);
   return wb;
 }

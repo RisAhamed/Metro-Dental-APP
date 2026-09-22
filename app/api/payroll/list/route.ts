@@ -15,23 +15,35 @@ export async function GET(req: NextRequest) {
   const clinicId = searchParams.get('clinicId');
   const month = searchParams.get('month');
   const year = searchParams.get('year');
+  const startDate = searchParams.get('startDate');
+  const endDate = searchParams.get('endDate');
 
-  if (!clinicId || !month || !year) {
+  if (!clinicId || ((!month || !year) && (!startDate || !endDate))) {
     return NextResponse.json(
-      { error: 'Missing clinicId, month, year' },
+      { error: 'Missing clinicId and (month/year or startDate/endDate)' },
       { status: 400 }
     );
   }
 
   try {
+    if (startDate && endDate) {
+      const suffix = `_${clinicId}_${startDate}_${endDate}`;
+      const records = await db
+        .select()
+        .from(monthlyPayroll)
+        .where(eq(monthlyPayroll.clinicId, clinicId))
+        .orderBy(asc(monthlyPayroll.userName));
+      const filtered = records.filter((r) => r.payrollId.endsWith(suffix));
+      return NextResponse.json({ records: filtered });
+    }
     const records = await db
       .select()
       .from(monthlyPayroll)
       .where(
         and(
           eq(monthlyPayroll.clinicId, clinicId),
-          eq(monthlyPayroll.month, month),
-          eq(monthlyPayroll.year, year)
+          eq(monthlyPayroll.month, month!),
+          eq(monthlyPayroll.year, year!)
         )
       )
       .orderBy(asc(monthlyPayroll.userName));

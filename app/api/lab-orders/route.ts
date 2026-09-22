@@ -21,6 +21,7 @@ export async function GET(req: NextRequest) {
   const clinicId = searchParams.get('clinicId');
   const status = searchParams.get('status');
   const patientId = searchParams.get('patientId');
+  const paymentFilter = searchParams.get('paymentStatus');
 
   try {
     const conditions = [];
@@ -59,7 +60,32 @@ export async function GET(req: NextRequest) {
       .where(conditions.length > 0 ? and(...conditions) : undefined)
       .orderBy(desc(labOrders.createdAt));
 
-    return NextResponse.json({ orders: results });
+    // Enrich with billing totals for financial filtering
+    const billingRows = await db.select().from(labBilling);
+    const billingMap = new Map(billingRows.map((b) => [b.orderId, b]));
+    let enriched = results.map((o) => {
+      const b = billingMap.get(o.orderId);
+      const total = Number(b?.totalCost || o.totalAmount || 0);
+      const paid = Number(b?.amountPaid || o.amountPaid || 0);
+      const balance = Math.max(0, total - paid);
+      const pStatus = (b?.paymentStatus || o.paymentStatus || 'UNPAID') as 'UNPAID' | 'PARTIALLY_PAID' | 'PAID';
+      return { ...o, totalCost: String(total), amountPaid: String(paid), balanceDue: String(balance), paymentStatus: pStatus };
+    });
+
+    if (paymentFilter && paymentFilter !== 'all') {
+      enriched = enriched.filter((o) => {
+        const total = Number(o.totalCost || 0);
+        const paid = Number(o.amountPaid || 0);
+        const balance = Number(o.balanceDue || 0);
+        if (paymentFilter === 'UNPAID') return paid === 0;
+        if (paymentFilter === 'PARTIALLY_PAID') return paid > 0 && paid < total;
+        if (paymentFilter === 'PAID') return paid >= total && total > 0;
+        if (paymentFilter === 'OUTSTANDING') return balance > 0;
+        return true;
+      });
+    }
+
+    return NextResponse.json({ orders: enriched });
   } catch (error) {
     console.error('Get Lab Orders Error:', error);
     return NextResponse.json({ error: 'Failed to fetch lab orders' }, { status: 500 });

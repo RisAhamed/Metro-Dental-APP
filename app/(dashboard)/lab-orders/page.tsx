@@ -16,6 +16,10 @@ interface LabOrder {
   workType: string | null;
   shade: string | null;
   totalAmount: string | null;
+  totalCost?: string | null;
+  amountPaid?: string | null;
+  balanceDue?: string | null;
+  paymentStatus?: string | null;
   status: string;
   stages: Array<{ status: string }>;
   createdAt: string;
@@ -46,6 +50,7 @@ export default function LabOrdersPage() {
   const [orders, setOrders] = useState<LabOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('all');
+  const [paymentFilter, setPaymentFilter] = useState('all');
   const [labFilter, setLabFilter] = useState('all');
   const [labs, setLabs] = useState<Array<{ labId: string; name: string }>>([]);
   const [stats, setStats] = useState<Stats | null>(null);
@@ -54,6 +59,7 @@ export default function LabOrdersPage() {
   const role = (sessionClaims?.role as string) || '';
 
   const isDoctor = ['SUPER_ADMIN', 'CLINIC_ADMIN', 'GENERAL_DOCTOR'].includes(role);
+  const isSuperAdmin = role === 'SUPER_ADMIN';
 
   useEffect(() => {
     let cancelled = false;
@@ -81,6 +87,9 @@ export default function LabOrdersPage() {
         if (statusFilter !== 'all') {
           url += `&status=${statusFilter}`;
         }
+        if (paymentFilter !== 'all') {
+          url += `&paymentStatus=${paymentFilter}`;
+        }
         if (labFilter !== 'all') {
           url += `&labId=${encodeURIComponent(labFilter)}`;
         }
@@ -97,7 +106,7 @@ export default function LabOrdersPage() {
     return () => {
       cancelled = true;
     };
-  }, [clinicId, statusFilter, labFilter]);
+  }, [clinicId, statusFilter, paymentFilter, labFilter]);
 
   useEffect(() => {
     let cancelled = false;
@@ -240,6 +249,31 @@ export default function LabOrdersPage() {
         <div className="h-6 w-px bg-gray-200 hidden sm:block" />
 
         <div className="flex items-center gap-2">
+          <label className="text-sm text-gray-600 whitespace-nowrap">Payment:</label>
+          <div className="flex gap-1">
+            {[
+              { key: 'all', label: 'All' },
+              { key: 'UNPAID', label: 'Unpaid' },
+              { key: 'PARTIALLY_PAID', label: 'Partially Paid' },
+              { key: 'PAID', label: 'Paid' },
+              { key: 'OUTSTANDING', label: 'Outstanding' },
+            ].map((f) => (
+              <button
+                key={f.key}
+                onClick={() => setPaymentFilter(f.key)}
+                className={`px-2.5 py-1.5 text-xs rounded-md ${
+                  paymentFilter === f.key ? 'bg-green-600 text-white' : 'bg-gray-100 hover:bg-gray-200'
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="h-6 w-px bg-gray-200 hidden sm:block" />
+
+        <div className="flex items-center gap-2">
           <label className="text-sm text-gray-600 whitespace-nowrap">Lab:</label>
           <select
             value={labFilter}
@@ -255,11 +289,12 @@ export default function LabOrdersPage() {
           </select>
         </div>
 
-        {(statusFilter !== 'all' || labFilter !== 'all') && (
+        {(statusFilter !== 'all' || labFilter !== 'all' || paymentFilter !== 'all') && (
           <button
             onClick={() => {
               setStatusFilter('all');
               setLabFilter('all');
+              setPaymentFilter('all');
             }}
             className="text-sm text-gray-500 hover:text-gray-700 ml-2"
           >
@@ -267,6 +302,17 @@ export default function LabOrdersPage() {
           </button>
         )}
       </div>
+
+      {isSuperAdmin && paymentFilter !== 'all' && orders.length > 0 && (
+        <div className="mb-4 bg-green-50 border border-green-200 rounded-lg px-4 py-2 text-sm text-green-800">
+          {(() => {
+            const total = orders.reduce((s, o) => s + Number(o.totalCost || o.totalAmount || 0), 0);
+            const paid = orders.reduce((s, o) => s + Number(o.amountPaid || 0), 0);
+            const out = orders.reduce((s, o) => s + Number(o.balanceDue || 0), 0);
+            return `Showing ${orders.length} orders • Total: ₹${total.toLocaleString('en-IN')} • Paid: ₹${paid.toLocaleString('en-IN')} • Outstanding: ₹${out.toLocaleString('en-IN')}`;
+          })()}
+        </div>
+      )}
 
       {loading ? (
         <div className="text-center py-12 text-gray-500">Loading...</div>
@@ -303,6 +349,13 @@ export default function LabOrdersPage() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                   Amount
                 </th>
+                {isSuperAdmin && (
+                  <>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Paid</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Balance Due</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Payment Status</th>
+                  </>
+                )}
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                   Doctor
                 </th>
@@ -345,8 +398,21 @@ export default function LabOrdersPage() {
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      {order.totalAmount ? `₹${Number(order.totalAmount).toLocaleString('en-IN')}` : '—'}
+                      {order.totalCost || order.totalAmount ? `₹${Number(order.totalCost || order.totalAmount || 0).toLocaleString('en-IN')}` : '—'}
                     </td>
+                    {isSuperAdmin && (
+                      <>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm">
+                          ₹{Number(order.amountPaid || 0).toLocaleString('en-IN')}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm">
+                          ₹{Number(order.balanceDue || 0).toLocaleString('en-IN')}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm">
+                          {order.paymentStatus || 'UNPAID'}
+                        </td>
+                      </>
+                    )}
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {order.orderedByDoctorName}
                     </td>

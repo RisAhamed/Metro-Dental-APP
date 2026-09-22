@@ -122,7 +122,7 @@ export default function VendorsManager() {
         <div>
           <h2 className="text-lg font-semibold text-gray-900">Vendors</h2>
           <p className="text-sm text-gray-600 mt-1">
-            Suppliers you place purchase orders with.
+            Directory of suppliers — name and contact info only.
           </p>
         </div>
       </div>
@@ -131,7 +131,7 @@ export default function VendorsManager() {
         <div className="text-center py-8 text-gray-500">Loading...</div>
       ) : vendors.length === 0 ? (
         <div className="text-center py-8 text-gray-500">
-          <p>No vendors yet. Create a user with the VENDOR role to add a vendor.</p>
+          <p>No vendors yet.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

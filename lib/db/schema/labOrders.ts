@@ -33,6 +33,8 @@ export const labOrders = table('lab_orders', {
   shadeId: text('shade_id'),
   totalAmount: text('total_amount'),
   amountPaid: text('amount_paid'),
+  balanceDue: text('balance_due'),
+  paymentStatus: text('payment_status').$type<'UNPAID' | 'PARTIALLY_PAID' | 'PAID'>().default('UNPAID'),
   stages: jsonb('stages')
     .$type<
       Array<{

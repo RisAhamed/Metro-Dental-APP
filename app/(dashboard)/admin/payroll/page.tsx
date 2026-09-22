@@ -43,15 +43,21 @@ export default function AdminPayrollPage() {
   const [generating, setGenerating] = useState(false);
   const [month, setMonth] = useState(() => new Date().getMonth() + 1);
   const [year, setYear] = useState(() => new Date().getFullYear());
+  const [useRange, setUseRange] = useState(false);
+  const [startDate, setStartDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [endDate, setEndDate] = useState(() => new Date().toISOString().slice(0, 10));
 
+  const listUrl = useRange
+    ? `/api/payroll/list?clinicId=${clinicId}&startDate=${startDate}&endDate=${endDate}`
+    : `/api/payroll/list?clinicId=${clinicId}&month=${month}&year=${year}`;
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
       setLoading(true);
       try {
-        const res = await fetch(
-          `/api/payroll/list?clinicId=${clinicId}&month=${month}&year=${year}`
-        );
+        const res = await fetch(listUrl);
         const data = await res.json();
         if (!cancelled) setRecords(data.records || []);
       } catch (error) {
@@ -64,14 +70,12 @@ export default function AdminPayrollPage() {
     return () => {
       cancelled = true;
     };
-  }, [clinicId, month, year]);
+  }, [clinicId, month, year, useRange, startDate, endDate]);
 
   const loadRecords = async () => {
     setLoading(true);
     try {
-      const res = await fetch(
-        `/api/payroll/list?clinicId=${clinicId}&month=${month}&year=${year}`
-      );
+      const res = await fetch(listUrl);
       const data = await res.json();
       setRecords(data.records || []);
     } catch (error) {
@@ -84,10 +88,13 @@ export default function AdminPayrollPage() {
   const handleGenerate = async () => {
     setGenerating(true);
     try {
+      const body = useRange
+        ? { clinicId, startDate, endDate }
+        : { clinicId, month, year };
       const res = await fetch('/api/payroll/generate-monthly', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clinicId, month, year }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (res.ok) {
@@ -104,9 +111,10 @@ export default function AdminPayrollPage() {
   };
 
   const handleExport = () => {
-    const wb = exportPayrollToExcel(records, month, year);
+    const label = useRange ? `Payroll ${startDate} to ${endDate}` : `Payroll ${month}-${year}`;
+    const wb = exportPayrollToExcel(records, month, year, label);
     const out = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-    const name = `Payroll_${month}_${year}.xlsx`;
+    const name = useRange ? `Payroll_${startDate}_to_${endDate}.xlsx` : `Payroll_${month}_${year}.xlsx`;
     const url = URL.createObjectURL(
       new Blob([out], {
         type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -124,33 +132,52 @@ export default function AdminPayrollPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-2">
         <h1 className="text-2xl font-bold">Payroll</h1>
+        <label className="flex items-center gap-2 text-sm text-gray-600">
+          <input type="checkbox" checked={useRange} onChange={(e) => setUseRange(e.target.checked)} />
+          Custom Date Range
+        </label>
+      </div>
+      <p className="text-sm text-gray-500 mb-4">
+        {useRange ? `Payroll for ${startDate} – ${endDate}` : `Payroll for ${month}/${year}`}
+      </p>
+      <div className="flex items-center justify-end mb-6">
         <div className="flex items-center gap-2">
-          <select
-            className="w-20 border border-gray-300 rounded-md px-2 py-1"
-            value={month}
-            onChange={(e) => setMonth(parseInt(e.target.value, 10))}
-          >
-            {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-              <option key={m} value={m}>
-                {m}
-              </option>
-            ))}
-          </select>
-          <select
-            className="w-24 border border-gray-300 rounded-md px-2 py-1"
-            value={year}
-            onChange={(e) => setYear(parseInt(e.target.value, 10))}
-          >
-            {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map(
-              (y) => (
-                <option key={y} value={y}>
-                  {y}
-                </option>
-              )
-            )}
-          </select>
+          {useRange ? (
+            <>
+              <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="border border-gray-300 rounded-md px-2 py-1" />
+              <span className="text-sm">to</span>
+              <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="border border-gray-300 rounded-md px-2 py-1" />
+            </>
+          ) : (
+            <>
+              <select
+                className="w-20 border border-gray-300 rounded-md px-2 py-1"
+                value={month}
+                onChange={(e) => setMonth(parseInt(e.target.value, 10))}
+              >
+                {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+              <select
+                className="w-24 border border-gray-300 rounded-md px-2 py-1"
+                value={year}
+                onChange={(e) => setYear(parseInt(e.target.value, 10))}
+              >
+                {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map(
+                  (y) => (
+                    <option key={y} value={y}>
+                      {y}
+                    </option>
+                  )
+                )}
+              </select>
+            </>
+          )}
           <button
             onClick={handleGenerate}
             disabled={generating}
@@ -175,7 +202,7 @@ export default function AdminPayrollPage() {
       ) : records.length === 0 ? (
         <div className="bg-white rounded-lg shadow p-12 text-center text-gray-500">
           <Banknote className="h-12 w-12 mx-auto text-gray-400 mb-2" />
-          <p>No payroll for {month}/{year}</p>
+          <p>{useRange ? `No payroll for ${startDate} to ${endDate}` : `No payroll for ${month}/${year}`}</p>
           <p className="text-sm mt-1">Click Generate to create payroll for all staff</p>
         </div>
       ) : (

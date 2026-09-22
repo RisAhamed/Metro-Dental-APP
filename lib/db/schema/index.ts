@@ -31,6 +31,8 @@ export * from './inventoryItems';
 export * from './inventoryCategories';
 export * from './inventoryConsumptions';
 export * from './purchaseOrders';
+export * from './purchases';
+export * from './purchasePayments';
 export * from './patientPayments';
 export * from './activityLogs';
 export * from './counters';

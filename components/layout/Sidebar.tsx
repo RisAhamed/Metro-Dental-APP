@@ -15,7 +15,6 @@ import {
   FileSpreadsheet,
   UserCog,
   Settings,
-  ShoppingCart,
   ClipboardList,
   Menu,
   X,
@@ -78,9 +77,6 @@ const ROLE_MENUS: Record<string, { label: string; href: string; icon: LucideIcon
   ],
   LAB_TECHNICIAN: [
     { label: 'Lab Orders', href: '/portal/lab/orders', icon: ClipboardList },
-  ],
-  VENDOR: [
-    { label: 'Orders', href: '/portal/vendor/orders', icon: ShoppingCart },
   ],
 };
 
