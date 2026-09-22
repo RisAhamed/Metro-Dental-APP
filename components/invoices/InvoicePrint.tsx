@@ -1,6 +1,7 @@
 'use client';
 
 import { forwardRef } from 'react';
+import { ClinicPrintHeader } from '@/components/print/ClinicPrintHeader';
 
 interface InvoiceProcedure {
   procedureId: string;
@@ -85,45 +86,30 @@ export const InvoicePrint = forwardRef<HTMLDivElement, InvoicePrintProps>(
 
     const contactLine = [clinicAddress, clinicPhone, clinicEmail].filter(Boolean).join(' • ');
 
-    return (
+  return (
+    <div
+      ref={ref}
+      id="invoice-print-area"
+      className="bg-white text-gray-900 print-area"
+      style={{
+        fontFamily: 'Inter, system-ui, sans-serif',
+        padding: pdfMode ? '32px' : undefined,
+        width: pdfMode ? '794px' : undefined,
+        boxSizing: 'border-box',
+        maxWidth: pdfMode ? '794px' : '800px',
+        margin: pdfMode ? '0' : '0 auto',
+        overflowWrap: 'anywhere',
+        wordBreak: 'break-word',
+      }}
+    >
+      <style>{INVOICE_STYLES}</style>
+      <ClinicPrintHeader />
+
+      {/* Invoice Meta */}
       <div
-        ref={ref}
-        id="invoice-print-area"
-        className="bg-white text-gray-900"
-        style={{
-          fontFamily: 'Inter, system-ui, sans-serif',
-          padding: pdfMode ? '32px' : undefined,
-          width: pdfMode ? '794px' : undefined,
-          boxSizing: 'border-box',
-          maxWidth: pdfMode ? '794px' : '800px',
-          margin: pdfMode ? '0' : '0 auto',
-          overflowWrap: 'anywhere',
-          wordBreak: 'break-word',
-        }}
+        className="mt-4 text-sm"
+        style={{ display: 'flex', justifyContent: 'space-between', gap: '16px', minWidth: 0 }}
       >
-        <style>{INVOICE_STYLES}</style>
-
-        {/* Clinic Header */}
-        <div className="text-center border-b-2 border-gray-800 pb-4" style={{ minWidth: 0 }}>
-          <h1
-            className="text-2xl font-bold tracking-wide uppercase"
-            style={{ overflowWrap: 'anywhere', wordBreak: 'break-word' }}
-          >
-            {clinicName}
-          </h1>
-          <p
-            className="text-sm text-gray-600 mt-1"
-            style={{ overflowWrap: 'anywhere', wordBreak: 'break-word' }}
-          >
-            {contactLine}
-          </p>
-        </div>
-
-        {/* Invoice Meta */}
-        <div
-          className="mt-4 text-sm"
-          style={{ display: 'flex', justifyContent: 'space-between', gap: '16px', minWidth: 0 }}
-        >
           <div style={{ minWidth: 0, flex: 1 }}>
             <p style={{ overflowWrap: 'anywhere' }}>
               <span className="font-semibold">INVOICE #:</span> {invoice.invoiceNumber}

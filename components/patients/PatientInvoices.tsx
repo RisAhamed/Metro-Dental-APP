@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Receipt, Wallet, Scale, Filter, Printer, Download } from 'lucide-react';
 import { StatusBadge, EmptyState, formatMoney, formatDateDDMMM } from './shared';
+import { ClinicPrintHeader } from '@/components/print/ClinicPrintHeader';
 
 export interface DerivedInvoice {
   visitId: string;
@@ -306,7 +307,8 @@ export function PatientLedger({ patientId, patient, summary, loading }: PatientL
         <EmptyState icon={Scale} message="No transactions found." />
       ) : (
         <>
-          <div ref={printRef} className="overflow-x-auto">
+          <div ref={printRef} className="overflow-x-auto print-area">
+            <ClinicPrintHeader />
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>

@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react';
 import { Download, Printer } from 'lucide-react';
+import { ClinicPrintHeader } from '@/components/print/ClinicPrintHeader';
 import type { PrescriptionMedicine } from '@/lib/db/schema/prescriptions';
 
 interface PrescriptionPrintProps {
@@ -81,11 +82,8 @@ export function PrescriptionPrint({ prescription, patient, clinic }: Prescriptio
         </button>
       </div>
 
-      <div id="prescription-print-area" ref={printRef} className="bg-white p-10 text-gray-900 shadow print:shadow-none">
-        <header className="border-b border-gray-300 pb-4 text-center">
-          <h1 className="text-2xl font-bold tracking-wide">{clinic?.name || 'METRO DENTAL CLINIC'}</h1>
-          <p className="mt-1 text-sm text-gray-600">{[clinic?.address, clinic?.phone, clinic?.email].filter(Boolean).join(' | ')}</p>
-        </header>
+      <div id="prescription-print-area" ref={printRef} className="bg-white p-10 text-gray-900 shadow print:shadow-none print-area">
+        <ClinicPrintHeader compact />
 
         <section className="mt-6 grid grid-cols-2 gap-y-2 text-sm">
           <p><span className="font-semibold">Doctor:</span> {prescription.doctorName ? `Dr. ${prescription.doctorName}` : '-'}</p>

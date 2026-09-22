@@ -4,3 +4,71 @@ body {
   background: #f9fafb;
   color: #111827;
 }
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 10mm 12mm;
+  }
+
+  html, body {
+    width: 210mm;
+    height: 297mm;
+    background: white !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    font-size: 11pt;
+  }
+
+  /* Hide app chrome */
+  .no-print,
+  nav,
+  aside,
+  header.app-header,
+  .toolbar,
+  .sidebar { 
+    display: none !important; 
+  }
+
+  /* Only the print area is visible */
+  .print-area,
+  #invoice-print-area,
+  #prescription-print-area,
+  #ledger-print-area {
+    width: 100% !important;
+    max-width: 180mm !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    background: white !important;
+  }
+
+  /* Prevent header overlap with content */
+  .clinic-print-header {
+    page-break-inside: avoid;
+    break-inside: avoid;
+    margin-bottom: 6mm;
+  }
+
+  /* Table rules */
+  table { 
+    border-collapse: collapse; 
+    width: 100%; 
+  }
+  th, td { 
+    padding: 3px 6px; 
+  }
+  thead { 
+    display: table-header-group; 
+  }
+  tr { 
+    page-break-inside: avoid; 
+  }
+
+  /* Signature block */
+  .signature-block { 
+    page-break-inside: avoid; 
+    break-inside: avoid; 
+  }
+}
