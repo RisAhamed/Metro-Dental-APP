@@ -27,10 +27,19 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pur
   const { amount, mode, reference, notes, paymentDate } = body;
   const amt = Number(amount);
   if (!amt || amt <= 0) return NextResponse.json({ error: 'Invalid amount' }, { status: 400 });
+  const allowedModes = ['CASH', 'GPAY', 'PHONEPE', 'PAYTM', 'DEBIT_CARD', 'CREDIT_CARD', 'BANK_TRANSFER', 'CHEQUE', 'OTHER'];
+  if (mode && !allowedModes.includes(mode)) return NextResponse.json({ error: 'Invalid payment mode' }, { status: 400 });
   try {
     const rows = await db.select().from(purchases).where(eq(purchases.purchaseId, purchaseId)).limit(1);
     if (!rows.length) return NextResponse.json({ error: 'Not found' }, { status: 404 });
     const purchase = rows[0];
+    const existing = await db.select().from(purchasePayments).where(eq(purchasePayments.purchaseId, purchaseId));
+    const alreadyPaid = existing.reduce((s, p) => s + Number(p.amount || 0), 0);
+    const total = Number(purchase.totalAmount || 0);
+    const balanceDue = Math.max(0, total - alreadyPaid);
+    if (amt > balanceDue) {
+      return NextResponse.json({ error: `Payment of ₹${amt.toFixed(2)} exceeds balance due of ₹${balanceDue.toFixed(2)} for ${purchase.purchaseNumber}.` }, { status: 400 });
+    }
     const counter = await db.execute(
       sql`INSERT INTO counters (key, value) VALUES ('purchase_payments', 1)
           ON CONFLICT (key) DO UPDATE SET value = counters.value + 1 RETURNING value`
@@ -45,14 +54,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pur
       clinicId: purchase.clinicId,
       amount: amt.toFixed(2),
       paymentDate: paymentDate ? new Date(paymentDate) : new Date(),
-      mode: mode || null,
+      mode: mode || 'CASH',
       reference: reference || null,
       notes: notes || null,
       recordedBy: userId,
       recordedByName: userSnap[0]?.name || 'Staff',
     });
-    const newPaid = Number(purchase.amountPaid || 0) + amt;
-    const total = Number(purchase.totalAmount || 0);
+    const newPaid = alreadyPaid + amt;
     const balance = Math.max(0, total - newPaid);
     const status = newPaid >= total ? 'PAID' : newPaid > 0 ? 'PARTIALLY_PAID' : 'UNPAID';
     const updated = await db

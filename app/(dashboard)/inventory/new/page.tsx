@@ -5,11 +5,6 @@ import { useRouter } from 'next/navigation';
 import { inventoryUnits } from '@/lib/constants/inventoryUnits';
 import { clinics, clinicName } from '@/lib/constants/clinics';
 
-interface Vendor {
-  vendorId: string;
-  name: string;
-}
-
 interface Category {
   id: string;
   name: string;
@@ -18,7 +13,6 @@ interface Category {
 
 export default function NewInventoryItemPage() {
   const router = useRouter();
-  const [vendors, setVendors] = useState<Vendor[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -36,10 +30,6 @@ export default function NewInventoryItemPage() {
     name: '',
     category: '',
     unit: '',
-    quantityInStock: '0',
-    reorderLevel: '10',
-    unitPrice: '',
-    vendorId: '',
     clinicId: '',
   });
 
@@ -67,11 +57,6 @@ export default function NewInventoryItemPage() {
               unit: catData.categories[0].unit,
             }));
           }
-        }
-        if (meData?.user?.role === 'SUPER_ADMIN' || meData?.user?.role === 'CLINIC_ADMIN') {
-          const vendorRes = await fetch('/api/vendors?active=true');
-          const vendorData = await vendorRes.json();
-          if (!cancelled) setVendors(vendorData.vendors || []);
         }
       } catch (error) {
         console.error('Error loading form data:', error);
@@ -108,10 +93,7 @@ export default function NewInventoryItemPage() {
           name: form.name,
           category: form.category,
           unit: form.unit,
-          quantityInStock: Number(form.quantityInStock) || 0,
-          reorderLevel: Number(form.reorderLevel) || 10,
-          unitPrice: isAdmin ? Number(form.unitPrice) || 0 : 0,
-          vendorId: isAdmin ? form.vendorId || null : null,
+          quantityInStock: 0,
           clinicId: form.clinicId,
         }),
       });
@@ -119,6 +101,12 @@ export default function NewInventoryItemPage() {
       if (!res.ok) {
         setError(data.error || 'Failed to create item');
         setSaving(false);
+        return;
+      }
+      if (data.existing) {
+        setError('Product already in catalog — using existing entry.');
+        setSaving(false);
+        setTimeout(() => router.push('/inventory'), 1500);
         return;
       }
       router.push('/inventory');
@@ -138,7 +126,7 @@ export default function NewInventoryItemPage() {
 
   return (
     <div className="max-w-2xl mx-auto">
-      <h1 className="text-2xl font-bold mb-6">Add Inventory Item</h1>
+      <h1 className="text-2xl font-bold mb-6">Add Product to Catalog</h1>
       {error && (
         <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm">
           {error}
@@ -215,71 +203,13 @@ export default function NewInventoryItemPage() {
             </select>
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Quantity In Stock</label>
-            <input
-              type="number"
-              min="0"
-              value={form.quantityInStock}
-              onChange={(e) => setForm({ ...form, quantityInStock: e.target.value })}
-              className={inputClass}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Reorder Level</label>
-            <input
-              type="number"
-              min="0"
-              value={form.reorderLevel}
-              onChange={(e) => setForm({ ...form, reorderLevel: e.target.value })}
-              className={inputClass}
-            />
-          </div>
-        </div>
-        {isAdmin && (
-          <>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Unit Price (₹)</label>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={form.unitPrice}
-                onChange={(e) => setForm({ ...form, unitPrice: e.target.value })}
-                className={inputClass}
-                placeholder="0.00"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Preferred Vendor</label>
-              <select
-                value={form.vendorId}
-                onChange={(e) => setForm({ ...form, vendorId: e.target.value })}
-                className={inputClass}
-              >
-                <option value="">No preferred vendor</option>
-                {vendors.map((v) => (
-                  <option key={v.vendorId} value={v.vendorId}>
-                    {v.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </>
-        )}
-        {!isAdmin && (
-          <div className="bg-blue-50 border border-blue-200 rounded-md px-4 py-3 text-sm text-blue-700">
-            Price and vendor details will be added by the clinic admin or super admin when ordering.
-          </div>
-        )}
         <div className="flex gap-3 pt-2">
           <button
             type="submit"
             disabled={saving}
             className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
           >
-            {saving ? 'Saving...' : 'Save Item'}
+            {saving ? 'Saving...' : 'Save Product'}
           </button>
           <button
             type="button"

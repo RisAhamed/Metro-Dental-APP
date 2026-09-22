@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, FormEvent } from 'react';
-import { Pencil, Trash2, X, Phone, Mail } from 'lucide-react';
+import Link from 'next/link';
+import { Pencil, Trash2, X, Phone, Mail, Search } from 'lucide-react';
 
 interface Vendor {
   vendorId: string;
@@ -30,14 +31,35 @@ export default function VendorsManager() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [search, setSearch] = useState('');
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [totals, setTotals] = useState<Record<string, { purchased: number; paid: number; outstanding: number }>>({});
 
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
       try {
-        const res = await fetch('/api/vendors?active=true');
-        const data = await res.json();
-        if (!cancelled) setVendors(data.vendors || []);
+        const [res, meRes, purRes] = await Promise.all([
+          fetch('/api/vendors?active=true'),
+          fetch('/api/users/me'),
+          fetch('/api/purchases?limit=200'),
+        ]);
+        const [data, meData, purData] = await Promise.all([res.json(), meRes.json(), purRes.json()]);
+        if (cancelled) return;
+        setVendors(data.vendors || []);
+        const role = meData?.user?.role || '';
+        setIsAdmin(['SUPER_ADMIN', 'CLINIC_ADMIN'].includes(role));
+        const agg: Record<string, { purchased: number; paid: number; outstanding: number }> = {};
+        for (const p of (purData.purchases || []) as Array<{ vendorId: string; totalAmount?: string; amountPaid?: string; balanceDue?: string }>) {
+          const t = Number(p.totalAmount || 0);
+          const paid = Number(p.amountPaid || 0);
+          const cur = agg[p.vendorId] || { purchased: 0, paid: 0, outstanding: 0 };
+          cur.purchased += t;
+          cur.paid += paid;
+          cur.outstanding += Number(p.balanceDue ?? Math.max(0, t - paid));
+          agg[p.vendorId] = cur;
+        }
+        setTotals(agg);
       } catch (error) {
         console.error('Error loading vendors:', error);
       } finally {
@@ -125,6 +147,10 @@ export default function VendorsManager() {
             Directory of suppliers — name and contact info only.
           </p>
         </div>
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search vendors..." className="pl-8 pr-3 py-2 border rounded-md text-sm" />
+        </div>
       </div>
 
       {loading ? (
@@ -135,11 +161,19 @@ export default function VendorsManager() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {vendors.map((vendor) => (
+          {vendors
+            .filter((v) => {
+              const q = search.trim().toLowerCase();
+              if (!q) return true;
+              return v.name.toLowerCase().includes(q) || v.phone?.toLowerCase().includes(q) || v.email?.toLowerCase().includes(q) || v.contactPerson?.toLowerCase().includes(q);
+            })
+            .map((vendor) => (
             <div key={vendor.vendorId} className="border border-gray-200 rounded-lg p-4">
               <div className="flex items-start justify-between">
                 <div>
-                  <h3 className="font-semibold text-gray-900">{vendor.name}</h3>
+                  <h3 className="font-semibold text-gray-900">
+                    <Link href={`/inventory/vendors/${vendor.vendorId}`} className="text-blue-600 hover:underline">{vendor.name}</Link>
+                  </h3>
                   {vendor.clinicId && (
                     <p className="text-sm text-gray-500">
                       Delivers to:{' '}
@@ -167,6 +201,11 @@ export default function VendorsManager() {
                   )}
                   {vendor.address && (
                     <p className="text-sm text-gray-500 mt-1">{vendor.address}</p>
+                  )}
+                  {isAdmin && totals[vendor.vendorId] && (
+                    <p className="text-xs text-gray-600 mt-2">
+                      Purchased ₹{totals[vendor.vendorId].purchased.toLocaleString('en-IN')} • Paid ₹{totals[vendor.vendorId].paid.toLocaleString('en-IN')} • Due ₹{totals[vendor.vendorId].outstanding.toLocaleString('en-IN')}
+                    </p>
                   )}
                 </div>
                 <div className="flex gap-1">

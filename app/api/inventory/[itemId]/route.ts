@@ -73,23 +73,21 @@ export async function PUT(
 
   const { itemId } = await params;
   const body = await req.json();
-  const { name, category, unit, quantityInStock, reorderLevel, unitPrice, vendorId, isActive } = body;
+    const { name, category, unit, quantityInStock, unitPrice, isActive } = body;
 
-  try {
-    await db
-      .update(inventoryItems)
-      .set({
-        name: name ?? undefined,
-        category: category ?? undefined,
-        unit: unit ?? undefined,
-        quantityInStock: quantityInStock ?? undefined,
-        reorderLevel: reorderLevel ?? undefined,
-        unitPrice: unitPrice ?? undefined,
-        vendorId: vendorId ?? null,
-        isActive: isActive ?? undefined,
-        updatedAt: new Date(),
-      })
-      .where(eq(inventoryItems.itemId, itemId));
+    try {
+      await db
+        .update(inventoryItems)
+        .set({
+          name: name ?? undefined,
+          category: category ?? undefined,
+          unit: unit ?? undefined,
+          quantityInStock: quantityInStock ?? undefined,
+          unitPrice: unitPrice ?? undefined,
+          isActive: isActive ?? undefined,
+          updatedAt: new Date(),
+        })
+        .where(eq(inventoryItems.itemId, itemId));
 
     return NextResponse.json({ success: true });
   } catch (error) {
