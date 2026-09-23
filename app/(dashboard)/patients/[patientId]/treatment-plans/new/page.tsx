@@ -18,6 +18,7 @@ export default function NewTreatmentPlanPage() {
   const { sessionClaims } = useAuth();
   const [patient, setPatient] = useState<Patient | null>(null);
   const [loading, setLoading] = useState(true);
+  const userName = (sessionClaims?.name as string) || '';
 
   const patientId = Array.isArray(params.patientId) ? params.patientId[0] : params.patientId || '';
   const clinicId = (sessionClaims?.primaryClinicId as string) || 'clinic_a';
@@ -68,7 +69,7 @@ export default function NewTreatmentPlanPage() {
         <p className="text-sm text-gray-500">{patient.patientId}</p>
       </div>
 
-      <TreatmentPlanForm patientId={patient.patientId} clinicId={clinicId} />
+      <TreatmentPlanForm patientId={patient.patientId} clinicId={clinicId} createdByName={userName} />
     </div>
   );
 }

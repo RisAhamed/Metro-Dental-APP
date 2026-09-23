@@ -8,7 +8,7 @@ import type { CalendarAppointment } from './types';
 const START_HOUR = 7; // 7:00 AM
 const END_HOUR = 21; // 9:00 PM
 const SLOT_MINUTES = 30;
-const SLOT_HEIGHT = 44;
+const SLOT_HEIGHT = 40;
 const TOTAL_SLOTS = ((END_HOUR - START_HOUR) * 60) / SLOT_MINUTES;
 const DAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 

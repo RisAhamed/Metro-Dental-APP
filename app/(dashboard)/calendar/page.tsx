@@ -382,7 +382,7 @@ export default function CalendarPage() {
               </div>
             </>
           ) : null}
-          <div className="hidden lg:block w-52 flex-shrink-0 bg-white rounded-lg shadow p-4 h-[calc(100vh-160px)] overflow-y-auto">
+           <div className="hidden lg:block w-52 flex-shrink-0 bg-white rounded-lg shadow p-3 h-[calc(100vh-160px)] overflow-y-auto">
           <h3 className="font-semibold text-gray-700 mb-4">Doctors</h3>
           <div className="space-y-1">
             <button
@@ -447,7 +447,7 @@ export default function CalendarPage() {
       )}
 
       {/* Calendar Area */}
-      <div className="flex-1 min-w-0 bg-white rounded-lg shadow p-3 sm:p-4 flex flex-col">
+       <div className="flex-1 min-w-0 bg-white rounded-lg shadow p-2 sm:p-3 flex flex-col">
         <div className="flex flex-col gap-3 mb-4">
           <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
             <button

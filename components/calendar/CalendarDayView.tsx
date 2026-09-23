@@ -8,7 +8,7 @@ import type { CalendarAppointment } from './types';
 const START_HOUR = 7;
 const END_HOUR = 21;
 const SLOT_MINUTES = 30;
-const SLOT_HEIGHT = 44;
+const SLOT_HEIGHT = 40;
 const TOTAL_SLOTS = ((END_HOUR - START_HOUR) * 60) / SLOT_MINUTES;
 
 function slotLabel(hour: number): string {
@@ -72,7 +72,7 @@ export function CalendarDayView({
         </div>
       </div>
 
-      <div className="flex overflow-y-auto overflow-x-auto max-h-[50vh] sm:max-h-[calc(100vh-300px)] min-h-[300px] sm:min-h-[400px] relative">
+      <div className="flex overflow-y-auto overflow-x-auto max-h-[calc(100vh-200px)] min-h-[300px] relative">
         <div className="w-12 sm:w-16 flex-shrink-0 bg-gray-50/50">
           {slots.map((slot, i) => (
             <div

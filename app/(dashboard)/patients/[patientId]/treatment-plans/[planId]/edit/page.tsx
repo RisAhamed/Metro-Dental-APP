@@ -26,12 +26,14 @@ interface Plan {
     isFullMouth: boolean;
     isMultiplyCost: boolean;
     notes: string | null;
+    category?: string;
     status?: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED';
     completedAt?: string | null;
     completedByName?: string | null;
   }[];
   notes: string | null;
   shareEnabled: boolean;
+  createdByName?: string;
 }
 
 export default function EditTreatmentPlanPage() {
@@ -104,6 +106,7 @@ export default function EditTreatmentPlanPage() {
         clinicId={clinicId}
         planId={planId}
         initial={plan}
+        createdByName={plan.createdByName}
       />
     </div>
   );

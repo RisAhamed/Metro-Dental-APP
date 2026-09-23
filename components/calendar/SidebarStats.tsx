@@ -82,7 +82,7 @@ export function SidebarStats({
   ];
 
   return (
-    <div className="w-80 flex-shrink-0 bg-white rounded-lg shadow p-4 h-[calc(100vh-160px)] overflow-y-auto">
+    <div className="w-[300px] flex-shrink-0 bg-white rounded-lg shadow p-3 h-[calc(100vh-160px)] overflow-y-auto">
       {/* Header with day navigation */}
       <div className="flex items-center justify-between mb-3">
         <button
@@ -130,7 +130,7 @@ export function SidebarStats({
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-4 gap-2 mb-4">
+       <div className="grid grid-cols-4 gap-1 mb-3">
         {(
           [
             { key: 'TODAY', label: 'TODAY', value: stats?.TODAY ?? 0 },
@@ -146,7 +146,7 @@ export function SidebarStats({
         ))}
       </div>
 
-      <h4 className="text-xs font-semibold text-gray-400 uppercase mb-2">Appointments</h4>
+       <h4 className="text-[10px] font-semibold text-gray-400 uppercase mb-1.5">Appointments</h4>
 
       {loading ? (
         <div className="text-center py-6 text-gray-400 text-sm">Loading...</div>
@@ -155,7 +155,7 @@ export function SidebarStats({
           No appointments {isTodayView ? 'today' : 'on this day'}
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           {visible.map((appt) => {
             const dot = statusDot(appt.status);
             const date = parseISO(appt.appointmentDate);

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Trash2, Pencil, Check, X } from 'lucide-react';
+import { Trash2, Pencil, Check, X, ChevronDown, ChevronUp } from 'lucide-react';
 import { ProcedureSearch, type ProcedureOption } from '@/components/procedures/ProcedureSearch';
 import { ProceduresSidebar } from '@/components/procedures/ProceduresSidebar';
 import { DentalChart } from '@/components/dental/DentalChart';
@@ -19,6 +19,7 @@ interface PlanProcedure {
   isFullMouth: boolean;
   isMultiplyCost: boolean;
   notes: string | null;
+  category?: string;
   status?: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED';
   completedAt?: string | null;
   completedByName?: string | null;
@@ -31,6 +32,7 @@ interface TreatmentPlanFormProps {
   clinicId: string;
   planId?: string;
   initial?: PlanData | null;
+  createdByName?: string;
 }
 
 interface PlanData {
@@ -40,9 +42,10 @@ interface PlanData {
   procedures: PlanProcedure[];
   notes: string | null;
   shareEnabled: boolean;
+  createdByName?: string;
 }
 
-export function TreatmentPlanForm({ patientId, clinicId, planId, initial }: TreatmentPlanFormProps) {
+export function TreatmentPlanForm({ patientId, clinicId, planId, initial, createdByName }: TreatmentPlanFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -54,6 +57,8 @@ export function TreatmentPlanForm({ patientId, clinicId, planId, initial }: Trea
   const [chartMode, setChartMode] = useState<'adult' | 'child'>('adult');
   const [editingNameIdx, setEditingNameIdx] = useState<number | null>(null);
   const [draftName, setDraftName] = useState('');
+  const [expandedNotes, setExpandedNotes] = useState<Set<number>>(new Set());
+  const [planNotesExpanded, setPlanNotesExpanded] = useState(false);
 
   const ADULT_ALL_TEETH = [
     18, 17, 16, 15, 14, 13, 12, 11, 21, 22, 23, 24, 25, 26, 27, 28,
@@ -174,6 +179,7 @@ export function TreatmentPlanForm({ patientId, clinicId, planId, initial }: Trea
       status,
       procedures,
       notes: notes || null,
+      createdByName: createdByName || initial?.createdByName || null,
     };
 
     try {
@@ -201,297 +207,185 @@ export function TreatmentPlanForm({ patientId, clinicId, planId, initial }: Trea
     }
   };
 
+  const toggleNoteExpand = (idx: number) => {
+    setExpandedNotes((prev) => {
+      const next = new Set(prev);
+      if (next.has(idx)) next.delete(idx);
+      else next.add(idx);
+      return next;
+    });
+  };
+
   return (
-    <div className="flex flex-col lg:flex-row gap-6">
-      <ProceduresSidebar onSelect={addProcedure} />
-      <div className="flex-1 space-y-6 min-w-0">
+    <div className="flex flex-col lg:flex-row gap-4">
+      <div className="flex-1 min-w-0 space-y-4">
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm">{error}</div>
+          <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-md text-sm">{error}</div>
         )}
 
-        <section className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Plan Details</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <section className="bg-white rounded-lg shadow p-4">
+          <h2 className="text-base font-semibold text-gray-900 mb-3">Plan Details</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Title</label>
               <input
                 type="text"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-2.5 py-1.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 value={title}
                 placeholder="e.g. Full Mouth Rehabilitation"
                 onChange={(e) => setTitle(e.target.value)}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Status</label>
               <select
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-2.5 py-1.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 value={status}
                 onChange={(e) => setStatus(e.target.value)}
               >
                 {PLAN_STATUSES.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
+                  <option key={s} value={s}>{s}</option>
                 ))}
               </select>
             </div>
           </div>
+          {createdByName && (
+            <p className="text-xs text-gray-500 mt-2">Planned by Dr. {createdByName} on {new Date().toLocaleDateString('en-IN')}</p>
+          )}
         </section>
 
-        <section className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">Procedures</h2>
-            <span className="text-xs text-gray-500">Tip: Click a procedure in the left sidebar to add it</span>
+        <section className="bg-white rounded-lg shadow p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-base font-semibold text-gray-900">Procedures ({procedures.length})</h2>
+            <span className="text-xs text-gray-400">Search below to add</span>
+          </div>
+          <div className="mb-3">
+            <ProcedureSearch onSelect={addProcedure} placeholder="Search procedure..." allowCustom />
           </div>
 
-          <div className="mb-6">
-            <ProcedureSearch onSelect={addProcedure} placeholder="Search procedure to add to plan..." allowCustom />
-          </div>
-
-        {procedures.length === 0 ? (
-          <p className="text-sm text-gray-500">No procedures added yet. Search above to add one.</p>
-        ) : (
-          <div className="space-y-4">
-            {procedures.map((proc, idx) => (
-              <div key={`${proc.procedureId}-${idx}`} className="border border-gray-200 rounded-md p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  {editingNameIdx === idx ? (
-                    <div className="flex items-center gap-2 flex-1 mr-2">
-                      <input
-                        type="text"
-                        autoFocus
-                        className="flex-1 px-2 py-1 border border-blue-400 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        value={draftName}
-                        onChange={(e) => setDraftName(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') saveName(idx);
-                          if (e.key === 'Escape') setEditingNameIdx(null);
-                        }}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => saveName(idx)}
-                        className="text-green-600 hover:text-green-700"
-                        title="Save name"
-                      >
-                        <Check className="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setEditingNameIdx(null)}
-                        className="text-gray-400 hover:text-gray-600"
-                        title="Cancel"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-semibold text-gray-800">{proc.procedureName}</p>
-                      <button
-                        type="button"
-                        onClick={() => startEditingName(idx)}
-                        className="text-gray-400 hover:text-blue-600"
-                        title="Edit procedure name"
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => removeProcedure(idx)}
-                    className="text-gray-400 hover:text-red-500"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-1">
-                      QTY {proc.isMultiplyCost && <span className="font-normal text-gray-400">(auto)</span>}
-                    </label>
-                    <input
-                      type="number"
-                      min="1"
-                      disabled={proc.isMultiplyCost}
-                      title={proc.isMultiplyCost ? 'QTY is auto-calculated from selected teeth when Multiply Cost is ON' : undefined}
-                      className={`w-full px-2 py-1.5 border rounded-md text-sm ${proc.isMultiplyCost ? 'bg-gray-100 border-gray-200 text-gray-500 cursor-not-allowed' : 'border-gray-300'}`}
-                      value={proc.qty}
-                      onChange={(e) => updateProcedure(idx, { qty: Math.max(1, Number(e.target.value) || 1) })}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-1">Procedure Status</label>
-                    <select
-                      value={proc.status || 'PENDING'}
-                      onChange={(e) => updateProcedure(idx, { status: e.target.value as PlanProcedure['status'] })}
-                      className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm"
-                    >
-                      <option value="PENDING">PENDING</option>
-                      <option value="IN_PROGRESS">IN_PROGRESS</option>
-                      <option value="COMPLETED">COMPLETED</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-1">Unit Cost (₹)</label>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm"
-                      value={proc.unitCost}
-                      onChange={(e) => updateProcedure(idx, { unitCost: Number(e.target.value) || 0 })}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-1">Discount (₹)</label>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm"
-                      value={proc.discount}
-                      onChange={(e) => updateProcedure(idx, { discount: Number(e.target.value) || 0 })}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-1">Total (₹)</label>
-                    <input
-                      type="text"
-                      disabled
-                      className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm bg-gray-50 font-semibold"
-                      value={proc.total.toLocaleString('en-IN')}
-                    />
-                  </div>
-                  <div className="flex items-end gap-2 pb-1">
-                    <label className="flex items-center gap-1.5 text-xs text-gray-700 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={proc.isFullMouth}
-                        onChange={() => toggleFullMouthForRow(idx)}
-                        className="h-3.5 w-3.5 rounded border-gray-300 text-blue-600"
-                      />
-                      Full Mouth
-                    </label>
-                    <label className="flex items-center gap-1.5 text-xs text-gray-700 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={proc.isMultiplyCost}
-                        onChange={() => toggleMultiplyCost(idx)}
-                        className="h-3.5 w-3.5 rounded border-gray-300 text-blue-600"
-                      />
-                      Multiply Cost
-                    </label>
-                  </div>
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-xs font-medium text-gray-500">Teeth Selection</p>
-                    {proc.toothNumbers && proc.toothNumbers.length > 0 && (
-                      <span className="text-xs text-gray-500">
-                        {proc.toothNumbers.length} teeth selected
-                      </span>
+          {procedures.length === 0 ? (
+            <p className="text-sm text-gray-400 py-4 text-center">No procedures added yet.</p>
+          ) : (
+            <div className="space-y-2">
+              {procedures.map((proc, idx) => (
+                <div key={`${proc.procedureId}-${idx}`} className="border border-gray-200 rounded-md p-3 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    {editingNameIdx === idx ? (
+                      <div className="flex items-center gap-2 flex-1 mr-2">
+                        <input autoFocus className="flex-1 px-2 py-1 border border-blue-400 rounded text-sm" value={draftName} onChange={(e) => setDraftName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') saveName(idx); if (e.key === 'Escape') setEditingNameIdx(null); }} />
+                        <button onClick={() => saveName(idx)} className="text-green-600"><Check className="h-3.5 w-3.5" /></button>
+                        <button onClick={() => setEditingNameIdx(null)} className="text-gray-400"><X className="h-3.5 w-3.5" /></button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <span className="text-sm font-semibold text-gray-800 truncate">{proc.procedureName}</span>
+                        {proc.category && <span className="text-xs text-gray-400 hidden sm:inline">{proc.category}</span>}
+                        <button onClick={() => startEditingName(idx)} className="text-gray-400 hover:text-blue-600 flex-shrink-0"><Pencil className="h-3 w-3" /></button>
+                        <button onClick={() => removeProcedure(idx)} className="text-gray-400 hover:text-red-500 flex-shrink-0"><Trash2 className="h-3.5 w-3.5" /></button>
+                      </div>
                     )}
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setChartRowIndex(chartRowIndex === idx ? null : idx)}
-                    className={`px-3 py-1.5 text-sm rounded-md border ${
-                      chartRowIndex === idx
-                        ? 'bg-blue-50 border-blue-300 text-blue-700'
-                        : 'border-gray-300 text-gray-700 hover:border-blue-400'
-                    }`}
-                  >
-                    {chartRowIndex === idx ? 'Hide Chart' : 'Select Teeth'}
-                  </button>
-
-                  {chartRowIndex === idx && (
-                    <div className="mt-3">
-                      <DentalChart
-                        selected={selectedTeethForRow(proc)}
-                        onChange={setTeethForRow}
-                        mode={chartMode}
-                        onModeChange={setChartMode}
-                        showFullMouth={false}
-                      />
+                  <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
+                    <div>
+                      <label className="text-[10px] text-gray-500">QTY {proc.isMultiplyCost && '(auto)'}</label>
+                      <input type="number" min="1" disabled={proc.isMultiplyCost} className={`w-full px-2 py-1 border rounded text-sm ${proc.isMultiplyCost ? 'bg-gray-100 text-gray-400' : 'border-gray-300'}`} value={proc.qty} onChange={(e) => updateProcedure(idx, { qty: Math.max(1, Number(e.target.value) || 1) })} />
                     </div>
-                  )}
-
+                    <div>
+                      <label className="text-[10px] text-gray-500">Status</label>
+                      <select value={proc.status || 'PENDING'} onChange={(e) => updateProcedure(idx, { status: e.target.value as PlanProcedure['status'] })} className="w-full px-2 py-1 border border-gray-300 rounded text-sm">
+                        <option value="PENDING">PENDING</option>
+                        <option value="IN_PROGRESS">IN_PROGRESS</option>
+                        <option value="COMPLETED">COMPLETED</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-gray-500">Unit ₹</label>
+                      <input type="number" min="0" step="0.01" className="w-full px-2 py-1 border border-gray-300 rounded text-sm" value={proc.unitCost} onChange={(e) => updateProcedure(idx, { unitCost: Number(e.target.value) || 0 })} />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-gray-500">Disc</label>
+                      <input type="number" min="0" step="0.01" className="w-full px-2 py-1 border border-gray-300 rounded text-sm" value={proc.discount} onChange={(e) => updateProcedure(idx, { discount: Number(e.target.value) || 0 })} />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-gray-500">Total</label>
+                      <input type="text" disabled className="w-full px-2 py-1 border border-gray-300 rounded text-sm bg-gray-50 font-semibold" value={proc.total.toLocaleString('en-IN')} />
+                    </div>
+                    <div className="flex items-center gap-2 pb-1">
+                      <label className="flex items-center gap-1 text-[10px] cursor-pointer"><input type="checkbox" checked={proc.isFullMouth} onChange={() => toggleFullMouthForRow(idx)} /> FM</label>
+                      <label className="flex items-center gap-1 text-[10px] cursor-pointer"><input type="checkbox" checked={proc.isMultiplyCost} onChange={() => toggleMultiplyCost(idx)} /> MC</label>
+                    </div>
+                  </div>
+                  <div>
+                    <button type="button" onClick={() => { setChartRowIndex(chartRowIndex === idx ? null : idx); if (chartRowIndex !== idx) setExpandedNotes((p) => { const n = new Set(p); n.delete(idx); return n; }); }} className="px-2 py-1 text-xs rounded border border-gray-300 text-gray-600 hover:border-blue-400">
+                      {chartRowIndex === idx ? 'Hide Chart' : 'Select Teeth'}
+                    </button>
+                    {chartRowIndex === idx && (
+                      <div className="mt-2">
+                        <DentalChart selected={selectedTeethForRow(proc)} onChange={setTeethForRow} mode={chartMode} onModeChange={setChartMode} showFullMouth={false} />
+                      </div>
+                    )}
+                  </div>
                   {proc.toothNumbers && proc.toothNumbers.length > 0 && (
-                    <div className="mt-2 flex flex-wrap gap-1">
-                      {proc.toothNumbers.map((t) => (
-                        <span key={t} className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">
-                          {t}
-                        </span>
-                      ))}
+                    <div className="flex flex-wrap gap-1">
+                      {proc.toothNumbers.map((t) => <span key={t} className="px-1.5 py-0.5 bg-blue-100 text-blue-700 text-[10px] rounded-full">{t}</span>)}
                     </div>
                   )}
+                  <div>
+                    {expandedNotes.has(idx) ? (
+                      <div>
+                        <AutoTextarea value={proc.notes || ''} onChange={(v) => updateProcedure(idx, { notes: v || null })} minRows={2} placeholder="Notes..." />
+                        <button onClick={() => toggleNoteExpand(idx)} className="mt-1 text-xs text-gray-400 hover:text-gray-600">Hide notes</button>
+                      </div>
+                    ) : (
+                      <button onClick={() => toggleNoteExpand(idx)} className="text-xs text-blue-600 hover:underline">
+                        {proc.notes ? `Edit notes (${proc.notes.length} chars)` : '+ Add notes'}
+                      </button>
+                    )}
+                  </div>
                 </div>
+              ))}
+            </div>
+          )}
+        </section>
 
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">Notes</label>
-                  <AutoTextarea
-                    value={proc.notes || ''}
-                    onChange={(v) => updateProcedure(idx, { notes: v || null })}
-                    minRows={4}
-                    placeholder="Optional notes for this procedure..."
-                  />
-                </div>
+        <section className="bg-white rounded-lg shadow p-4">
+          <h2 className="text-base font-semibold text-gray-900 mb-3">Summary</h2>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="bg-gray-50 border border-gray-200 rounded-md p-3">
+              <p className="text-[10px] text-gray-500">Total Cost</p>
+              <p className="text-base font-bold">₹{totals.cost.toLocaleString('en-IN')}</p>
+            </div>
+            <div className="bg-gray-50 border border-gray-200 rounded-md p-3">
+              <p className="text-[10px] text-gray-500">Discount</p>
+              <p className="text-base font-bold text-red-600">₹{totals.discount.toLocaleString('en-IN')}</p>
+            </div>
+            <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+              <p className="text-[10px] text-blue-500">Grand Total</p>
+              <p className="text-base font-bold text-blue-700">₹{grandTotal.toLocaleString('en-IN')}</p>
+            </div>
+          </div>
+          <div className="mt-3">
+            {planNotesExpanded ? (
+              <div>
+                <AutoTextarea value={notes} onChange={setNotes} minRows={2} placeholder="Plan notes..." />
+                <button onClick={() => setPlanNotesExpanded(false)} className="mt-1 text-xs text-gray-400 hover:text-gray-600">Hide notes</button>
               </div>
-            ))}
+            ) : (
+              <button onClick={() => setPlanNotesExpanded(true)} className="text-xs text-blue-600 hover:underline">
+                {notes ? `Edit plan notes (${notes.length} chars)` : '+ Add plan notes'}
+              </button>
+            )}
           </div>
-        )}
-      </section>
+        </section>
 
-      <section className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Summary</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-gray-50 border border-gray-200 rounded-md p-4">
-            <p className="text-xs text-gray-500">Total Cost</p>
-            <p className="text-xl font-bold text-gray-900">₹{totals.cost.toLocaleString('en-IN')}</p>
-          </div>
-          <div className="bg-gray-50 border border-gray-200 rounded-md p-4">
-            <p className="text-xs text-gray-500">Total Discount</p>
-            <p className="text-xl font-bold text-red-600">₹{totals.discount.toLocaleString('en-IN')}</p>
-          </div>
-          <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
-            <p className="text-xs text-blue-500">Grand Total</p>
-            <p className="text-xl font-bold text-blue-700">₹{grandTotal.toLocaleString('en-IN')}</p>
-          </div>
+        <div className="flex items-center justify-end gap-2">
+          <button onClick={() => router.back()} className="px-3 py-1.5 border border-gray-300 rounded text-sm hover:bg-gray-50">Cancel</button>
+          <button disabled={loading} onClick={submit} className="px-4 py-1.5 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 disabled:opacity-50">{loading ? 'Saving...' : 'Save Plan'}</button>
         </div>
-
-        <div className="mt-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1">Plan Notes</label>
-          <AutoTextarea
-            value={notes}
-            onChange={setNotes}
-            minRows={5}
-            placeholder="Global notes for this treatment plan..."
-          />
-        </div>
-      </section>
-
-      <div className="flex items-center justify-end gap-3">
-        <button
-          type="button"
-          onClick={() => router.back()}
-          className="px-4 py-2 border border-gray-300 rounded-md text-sm hover:bg-gray-50"
-        >
-          Cancel
-        </button>
-        <button
-          type="button"
-          disabled={loading}
-          onClick={submit}
-          className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 disabled:opacity-50"
-        >
-          {loading ? 'Saving...' : 'Save Plan'}
-        </button>
       </div>
+
+      <div className="hidden lg:block w-[300px] flex-shrink-0">
+        <ProceduresSidebar onSelect={addProcedure} />
       </div>
     </div>
   );
