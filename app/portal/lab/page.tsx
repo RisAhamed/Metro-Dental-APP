@@ -77,7 +77,7 @@ export default function LabDashboardPage() {
       ? data.combined
       : data.byClinic[selectedClinic] || {
           clinicId: selectedClinic,
-          clinicName: selectedClinic === 'clinic_a' ? 'Clinic A' : 'Clinic B',
+          clinicName: selectedClinic === 'clinic_a' ? 'Kodambakkam' : 'Mylapore',
           total: 0,
           pending: 0,
           inProgress: 0,
@@ -122,7 +122,7 @@ export default function LabDashboardPage() {
                   : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
               }`}
             >
-              {c === 'both' ? 'Both Clinics' : c === 'clinic_a' ? 'Clinic A' : 'Clinic B'}
+              {c === 'both' ? 'Both Clinics' : c === 'clinic_a' ? 'Kodambakkam' : 'Mylapore'}
             </button>
           ))}
         </div>

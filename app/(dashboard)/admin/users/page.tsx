@@ -339,8 +339,8 @@ export default function UsersPage() {
                   onChange={(e) => setForm({ ...form, primaryClinicId: e.target.value })}
                 >
                   <option value="">All Clinics (Super Admin)</option>
-                  <option value="clinic_a">Clinic A</option>
-                  <option value="clinic_b">Clinic B</option>
+                  <option value="clinic_a">Kodambakkam</option>
+                  <option value="clinic_b">Mylapore</option>
                 </select>
               </div>
 

@@ -180,9 +180,9 @@ export default function VendorsManager() {
                       {vendor.clinicId === 'shared'
                         ? 'All clinics'
                         : vendor.clinicId === 'clinic_a'
-                        ? 'Clinic A'
+                        ? 'Kodambakkam'
                         : vendor.clinicId === 'clinic_b'
-                        ? 'Clinic B'
+                        ? 'Mylapore'
                         : vendor.clinicId}
                     </p>
                   )}

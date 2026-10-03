@@ -1,6 +1,6 @@
 export const clinics = [
-  { clinicId: 'clinic_a', name: 'Clinic A' },
-  { clinicId: 'clinic_b', name: 'Clinic B' },
+  { clinicId: 'clinic_a', name: 'Kodambakkam' },
+  { clinicId: 'clinic_b', name: 'Mylapore' },
 ];
 
 export const clinicName = (clinicId: string | null | undefined): string => {

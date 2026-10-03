@@ -171,7 +171,7 @@ export default function NewUserPage() {
               {vendors.map((vendor) => (
                 <option key={vendor.vendorId} value={vendor.vendorId}>
                   {vendor.name} ({vendor.vendorId})
-                  {vendor.clinicId === 'shared' ? '' : ` · ${vendor.clinicId === 'clinic_a' ? 'Clinic A' : 'Clinic B'}`}
+                  {vendor.clinicId === 'shared' ? '' : ` · ${vendor.clinicId === 'clinic_a' ? 'Kodambakkam' : 'Mylapore'}`}
                 </option>
               ))}
             </select>
@@ -187,8 +187,8 @@ export default function NewUserPage() {
             value={form.primaryClinicId}
             onChange={(e) => setForm({ ...form, primaryClinicId: e.target.value })}
           >
-            <option value="clinic_a">Clinic A</option>
-            <option value="clinic_b">Clinic B</option>
+            <option value="clinic_a">Kodambakkam</option>
+            <option value="clinic_b">Mylapore</option>
           </select>
         </div>
         <div>

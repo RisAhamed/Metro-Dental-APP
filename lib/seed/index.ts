@@ -27,6 +27,18 @@ import { sql, isNull } from 'drizzle-orm';
 
 export const slugify = (name: string) => name.toLowerCase().replace(/[^a-z0-9]/g, '-');
 
+export async function seedClinics() {
+  await db.execute(sql`
+    INSERT INTO clinics (clinic_id, name, is_active, created_at)
+    VALUES
+    ('clinic_a', 'Kodambakkam', true, NOW()),
+    ('clinic_b', 'Mylapore', true, NOW())
+    ON CONFLICT (clinic_id) DO UPDATE
+    SET name = EXCLUDED.name,
+    is_active = true
+  `);
+}
+
 export async function seedReferralSources() {
   for (const name of defaultReferralSources) {
     await db
@@ -216,6 +228,7 @@ export async function seedLabShades() {
 }
 
 export async function seedAllData(clinicId: string, createdBy = 'system') {
+  await seedClinics();
   const [
     referrals,
     conditions,

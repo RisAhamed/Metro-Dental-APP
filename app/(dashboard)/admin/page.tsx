@@ -128,8 +128,8 @@ export default function AdminDashboardPage() {
             className="w-full sm:w-auto px-3 py-2 border border-gray-300 rounded-md text-sm"
           >
             <option value="both">Both Clinics</option>
-            <option value="clinic_a">Clinic A</option>
-            <option value="clinic_b">Clinic B</option>
+            <option value="clinic_a">Kodambakkam</option>
+            <option value="clinic_b">Mylapore</option>
           </select>
           <div className="flex items-center gap-1 sm:gap-2 w-full sm:w-auto">
             <button

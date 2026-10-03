@@ -256,7 +256,7 @@ export default function LabPortalOrderDetailPage() {
             <h1 className="text-2xl font-bold">{order.orderId}</h1>
             <p className="text-gray-500 text-sm mt-1">
               Lab: {order.labName} •{' '}
-              {order.clinicId === 'clinic_a' ? 'Clinic A' : 'Clinic B'}
+              {order.clinicId === 'clinic_a' ? 'Kodambakkam' : 'Mylapore'}
             </p>
           </div>
           <span

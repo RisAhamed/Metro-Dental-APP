@@ -78,7 +78,7 @@ export default function LabPortalOrdersPage() {
                   : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
               }`}
             >
-              {c === 'both' ? 'Both' : c === 'clinic_a' ? 'Clinic A' : 'Clinic B'}
+              {c === 'both' ? 'Both' : c === 'clinic_a' ? 'Kodambakkam' : 'Mylapore'}
             </button>
           ))}
         </div>
@@ -145,7 +145,7 @@ export default function LabPortalOrdersPage() {
                       </Link>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                      {order.clinicId === 'clinic_a' ? 'Clinic A' : 'Clinic B'}
+                      {order.clinicId === 'clinic_a' ? 'Kodambakkam' : 'Mylapore'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {order.patientName}

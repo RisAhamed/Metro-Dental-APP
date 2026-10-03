@@ -95,8 +95,8 @@ export default function ReportsPage() {
             className={inputClass}
           >
             <option value="both">Both Clinics</option>
-            <option value="clinic_a">Clinic A</option>
-            <option value="clinic_b">Clinic B</option>
+            <option value="clinic_a">Kodambakkam</option>
+            <option value="clinic_b">Mylapore</option>
           </select>
         </div>
 
