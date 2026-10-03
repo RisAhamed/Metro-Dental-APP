@@ -176,6 +176,13 @@
       "when": 1789897221398,
       "tag": "0024_yielding_menace",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1791017574325,
+      "tag": "0025_purchases_and_purchase_payments",
+      "breakpoints": true
     }
   ]
 }
