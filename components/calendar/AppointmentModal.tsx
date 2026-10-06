@@ -65,8 +65,13 @@ export function AppointmentModal({
   const [patients, setPatients] = useState<Patient[]>([]);
   const [searching, setSearching] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
+  // Which patient field owns the open dropdown: name search box, ID, or phone.
+  // All three share one debounced search (single timer => no duplicate calls).
+  const [focusedField, setFocusedField] = useState<'search' | 'id' | 'phone' | null>(null);
+  const [activeQuery, setActiveQuery] = useState('');
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const idPhoneRef = useRef<HTMLDivElement>(null);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(
     prefill?.patient
       ? {
@@ -273,11 +278,15 @@ export function AppointmentModal({
     }
   };
 
-  // Close dropdown on outside click
+  // Close dropdown on outside click (covers the name search box and the ID/Mobile fields)
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      const insideName = dropdownRef.current?.contains(target);
+      const insideIdPhone = idPhoneRef.current?.contains(target);
+      if (!insideName && !insideIdPhone) {
         setShowDropdown(false);
+        setFocusedField(null);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -294,9 +303,60 @@ export function AppointmentModal({
       patientEmail: patient.email || '',
     });
     setSearchPatient('');
+    setActiveQuery('');
     setPatients([]);
     setShowDropdown(false);
+    setFocusedField(null);
   };
+
+  // Typing in the Patient ID / Mobile fields reuses the same debounced search.
+  // The typed text becomes unverified, so any previous selection is cleared —
+  // submit validation requires picking a suggestion.
+  const handleIdFieldChange = (value: string) => {
+    setForm({ ...form, patientId: value });
+    setSelectedPatient(null);
+    setActiveQuery(value);
+    setFocusedField('id');
+    debouncedSearch(value);
+  };
+
+  const handlePhoneFieldChange = (value: string) => {
+    setForm({ ...form, patientPhone: value });
+    setSelectedPatient(null);
+    setActiveQuery(value);
+    setFocusedField('phone');
+    debouncedSearch(value);
+  };
+
+  const closePatientDropdown = () => {
+    setShowDropdown(false);
+    setFocusedField(null);
+  };
+
+  // Shared autocomplete dropdown, anchored under whichever patient field is focused.
+  const renderPatientDropdown = () => (
+    <>
+      {showDropdown && patients.length > 0 && (
+        <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-40 overflow-y-auto">
+          {patients.map((p) => (
+            <button
+              key={p.patientId}
+              type="button"
+              onClick={() => handleSelectPatient(p)}
+              className="w-full text-left px-4 py-2 hover:bg-gray-100 text-sm"
+            >
+              {p.name} ({p.patientId}) - {p.primaryPhone}
+            </button>
+          ))}
+        </div>
+      )}
+      {showDropdown && !searching && patients.length === 0 && activeQuery.length >= 2 && (
+        <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg px-4 py-3 text-sm text-gray-500">
+          No patients found
+        </div>
+      )}
+    </>
+  );
 
   const handleSubmitAppointment = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -312,6 +372,19 @@ export function AppointmentModal({
 
     if (!form.doctorId || !form.appointmentDate || (patientMode === 'EXISTING' && !form.patientId)) {
       alert('Please fill in all required fields');
+      setLoading(false);
+      return;
+    }
+
+    // ID/Mobile fields are editable search inputs: only a suggestion pick yields a
+    // verified patient. Block submits with hand-typed, unselected IDs.
+    if (patientMode === 'EXISTING' && !appointment && !selectedPatient) {
+      alert('Please select a patient from the search suggestions');
+      setLoading(false);
+      return;
+    }
+    if (appointment && form.patientId !== appointment.patientId && !selectedPatient) {
+      alert('Please select a patient from the search suggestions');
       setLoading(false);
       return;
     }
@@ -623,10 +696,16 @@ export function AppointmentModal({
                             value={searchPatient}
                             onChange={(e) => {
                               setSearchPatient(e.target.value);
+                              setActiveQuery(e.target.value);
+                              setFocusedField('search');
                               debouncedSearch(e.target.value);
                             }}
                             onFocus={() => {
+                              setFocusedField('search');
                               if (patients.length > 0) setShowDropdown(true);
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Escape') closePatientDropdown();
                             }}
                             className="w-full border border-gray-300 rounded-md px-3 py-2 pr-8"
                           />
@@ -634,25 +713,7 @@ export function AppointmentModal({
                             <Loader2 className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 animate-spin" />
                           )}
                         </div>
-                        {showDropdown && patients.length > 0 && (
-                          <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-40 overflow-y-auto">
-                            {patients.map((p) => (
-                              <button
-                                key={p.patientId}
-                                type="button"
-                                onClick={() => handleSelectPatient(p)}
-                                className="w-full text-left px-4 py-2 hover:bg-gray-100 text-sm"
-                              >
-                                {p.name} ({p.patientId}) - {p.primaryPhone}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                        {showDropdown && !searching && patients.length === 0 && searchPatient.length >= 2 && (
-                          <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg px-4 py-3 text-sm text-gray-500">
-                            No patients found
-                          </div>
-                        )}
+                        {focusedField !== 'id' && focusedField !== 'phone' && renderPatientDropdown()}
                       </div>
                       {selectedPatient && (
                         <div className="mt-2 p-2 bg-blue-50 rounded-md">
@@ -668,24 +729,46 @@ export function AppointmentModal({
               )}
 
               {!(patientMode === 'NEW' && !appointment) && (
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4" ref={idPhoneRef}>
                   <div>
                     <label className="block text-sm font-medium text-gray-700">Patient ID</label>
-                    <input
-                      type="text"
-                      value={form.patientId}
-                      readOnly
-                      className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 bg-gray-50"
-                    />
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={form.patientId}
+                        onChange={(e) => handleIdFieldChange(e.target.value)}
+                        onFocus={() => {
+                          setFocusedField('id');
+                          if (patients.length > 0) setShowDropdown(true);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Escape') closePatientDropdown();
+                        }}
+                        placeholder="Type to search..."
+                        className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
+                      />
+                      {focusedField === 'id' && renderPatientDropdown()}
+                    </div>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700">Mobile No.</label>
-                    <input
-                      type="text"
-                      value={form.patientPhone}
-                      readOnly
-                      className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 bg-gray-50"
-                    />
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={form.patientPhone}
+                        onChange={(e) => handlePhoneFieldChange(e.target.value)}
+                        onFocus={() => {
+                          setFocusedField('phone');
+                          if (patients.length > 0) setShowDropdown(true);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Escape') closePatientDropdown();
+                        }}
+                        placeholder="Type to search..."
+                        className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
+                      />
+                      {focusedField === 'phone' && renderPatientDropdown()}
+                    </div>
                   </div>
                 </div>
               )}

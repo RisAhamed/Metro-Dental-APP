@@ -115,7 +115,7 @@ export async function GET(req: NextRequest) {
   }
 
   const { searchParams } = new URL(req.url);
-  const clinicId = searchParams.get('clinicId');
+  const requestedClinicId = searchParams.get('clinicId');
   const group = searchParams.get('group');
   const search = searchParams.get('search');
   const limit = Math.min(parseInt(searchParams.get('limit') || '50') || 50, 200);
@@ -123,8 +123,10 @@ export async function GET(req: NextRequest) {
   try {
     const conditions = [];
 
-    if (clinicId) {
-      conditions.push(eq(patients.registeredClinicId, clinicId));
+    // Universal visibility: operational data is visible cross-clinic to all staff.
+    // Only an explicit ?clinicId=X narrows the scope; otherwise return ALL patients.
+    if (requestedClinicId) {
+      conditions.push(eq(patients.registeredClinicId, requestedClinicId));
     }
 
     if (group) {

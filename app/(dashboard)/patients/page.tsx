@@ -49,7 +49,9 @@ export default function PatientsPage() {
     let cancelled = false;
     const load = async () => {
       try {
-        const params = new URLSearchParams({ clinicId, limit: '50' });
+        // No clinicId param: the API defaults to all clinics in the user's session
+        // (cross-clinic search for multi-clinic staff).
+        const params = new URLSearchParams({ limit: '50' });
         if (selectedGroup) params.set('group', selectedGroup);
         if (appliedSearch) params.set('search', appliedSearch);
 
