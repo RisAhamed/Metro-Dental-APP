@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { format, addDays, isSameDay, parseISO } from 'date-fns';
 import { Zap, Plus, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { CalendarAppointment, CalendarStats } from './types';
+import { clinicName } from '@/lib/constants/clinics';
 
 type StatTab = 'ALL' | 'ONLINE' | 'OFFLINE';
 
@@ -185,6 +186,11 @@ export function SidebarStats({
                       </button>
                       {appt.isWalkIn && (
                         <Zap className="h-3 w-3 fill-yellow-400 text-yellow-400 flex-shrink-0" />
+                      )}
+                      {appt.clinicId && (
+                        <span className="px-1.5 py-0.5 text-[10px] rounded bg-gray-100 text-gray-600 font-medium flex-shrink-0">
+                          {clinicName(appt.clinicId)}
+                        </span>
                       )}
                       <span
                         className={`ml-auto w-2.5 h-2.5 rounded-full ${dot.color} flex-shrink-0`}

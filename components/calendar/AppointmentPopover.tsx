@@ -3,9 +3,10 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
-import { X, Phone, Mail, Tag, Stethoscope, Edit, Banknote, Ban, IndianRupee } from 'lucide-react';
+import { X, Phone, Mail, Tag, Stethoscope, Edit, Banknote, Ban, IndianRupee, MapPin } from 'lucide-react';
 import { useAuth } from '@clerk/nextjs';
 import type { CalendarAppointment } from './types';
+import { clinicName } from '@/lib/constants/clinics';
 
 interface PatientDetails {
   gender?: string | null;
@@ -191,6 +192,12 @@ export function AppointmentPopover({
         {/* Appointment summary */}
         <div className="mt-3 pt-3 border-t border-gray-100">
           <p className="text-sm font-medium text-gray-800">In-Clinic Appointment</p>
+          {appointment.clinicId && (
+            <p className="text-sm text-gray-500 mt-0.5 flex items-center gap-1.5">
+              <MapPin className="h-4 w-4 flex-shrink-0" />
+              {clinicName(appointment.clinicId)}
+            </p>
+          )}
           <p className="text-sm text-gray-500 mt-0.5 flex items-start gap-1.5">
             <Stethoscope className="h-4 w-4 flex-shrink-0 mt-0.5" />
             <span>

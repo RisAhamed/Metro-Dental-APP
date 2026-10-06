@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json();
   const {
-    patientId, name, gender, dateOfBirth, age, bloodGroup,
+    patientId, practoPatientId, name, gender, dateOfBirth, age, bloodGroup,
     primaryPhone, secondaryPhone, email, anniversary, address,
     referredById, referredByName, medicalHistory, otherHistory,
     groups, familyMembers, languagePreference, registeredClinicId,
@@ -53,6 +53,7 @@ export async function POST(req: NextRequest) {
 
     await db.insert(patients).values({
       patientId,
+      practoPatientId: practoPatientId?.trim() ? String(practoPatientId).trim() : null,
       name,
       gender,
       dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,

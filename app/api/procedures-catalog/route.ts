@@ -46,8 +46,10 @@ function canManageCatalog(sessionClaims: unknown): boolean {
 
 export async function POST(req: NextRequest) {
   const { sessionClaims, userId } = await auth();
-  if (!canManageCatalog(sessionClaims) || !userId) {
-    return NextResponse.json({ error: 'Unauthorized - Admin only' }, { status: 403 });
+  // Any staff member using the app may add procedures (doctors, receptionists, admins).
+  // Editing/deactivating stays admin-only (PUT/DELETE below).
+  if (!canViewClinical(sessionClaims) || !userId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
   }
 
   const body = await req.json();

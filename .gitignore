@@ -42,3 +42,9 @@ next-env.d.ts
 
 # clerk configuration (can include secrets)
 /.clerk/
+
+# local secret dumps (never commit)
+info.txt
+credential.txt
+*.env.local
+.env*.local

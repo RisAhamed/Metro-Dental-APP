@@ -32,6 +32,7 @@ export default function NewPatientPage() {
 
   const [form, setForm] = useState({
     patientId: '',
+    practoPatientId: '',
     name: '',
     gender: 'MALE',
     dateOfBirth: '',
@@ -300,6 +301,20 @@ export default function NewPatientPage() {
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
                 className={inputClass}
               />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+            <div>
+              <label className={labelClass}>Practo Patient ID</label>
+              <input
+                type="text"
+                value={form.practoPatientId}
+                onChange={(e) => setForm({ ...form, practoPatientId: e.target.value })}
+                placeholder="e.g. 18875 or M17866"
+                className={inputClass}
+              />
+              <p className="mt-1 text-xs text-gray-500">Optional — enter the ID used in Practo for migration reference.</p>
             </div>
           </div>
 

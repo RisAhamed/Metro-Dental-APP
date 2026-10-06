@@ -99,6 +99,8 @@ export async function PATCH(
     }
     if (body.secondaryPhone !== undefined)
       updateFields.secondaryPhone = String(body.secondaryPhone).trim() || null;
+    if (body.practoPatientId !== undefined)
+      updateFields.practoPatientId = String(body.practoPatientId).trim() || null;
     if (body.email !== undefined) {
       const email = String(body.email).trim() || null;
       if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {

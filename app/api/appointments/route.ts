@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
   const startDate = searchParams.get('startDate');
   const endDate = searchParams.get('endDate');
 
-  if (!clinicId || !startDate || !endDate) {
+  if (!startDate || !endDate) {
     return NextResponse.json({ error: 'Missing required params' }, { status: 400 });
   }
 
@@ -32,7 +32,8 @@ export async function GET(req: NextRequest) {
     const endExclusive = new Date(new Date(endDate).setHours(23, 59, 59, 999));
 
     const conditions = [
-      eq(appointments.clinicId, clinicId),
+      // clinicId is optional: omitted => appointments from ALL clinics (universal calendar)
+      ...(clinicId ? [eq(appointments.clinicId, clinicId)] : []),
       between(appointments.appointmentDate, start, endExclusive),
     ];
 

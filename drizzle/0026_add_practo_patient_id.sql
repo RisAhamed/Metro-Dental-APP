@@ -1,0 +1,1 @@
+ALTER TABLE "patients" ADD COLUMN "practo_patient_id" text;

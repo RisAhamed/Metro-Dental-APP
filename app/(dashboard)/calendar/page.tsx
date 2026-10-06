@@ -85,6 +85,9 @@ export default function CalendarPage() {
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const clinicId = (sessionClaims?.primaryClinicId as string) || 'clinic_a';
+  // Universal calendar: 'all' shows appointments from both clinics (default).
+  // This is a view toggle only — other modules stay clinic-scoped.
+  const [clinicFilter, setClinicFilter] = useState<'all' | 'clinic_a' | 'clinic_b'>('all');
   const isMobile = useMobile();
 
   // Mobile defaults are handled via lazy initializers above.
@@ -96,7 +99,10 @@ export default function CalendarPage() {
     const load = async () => {
       try {
         const { start, end } = getRangeForView(view, currentDate);
-        let url = `/api/appointments?clinicId=${clinicId}&startDate=${format(start, 'yyyy-MM-dd')}&endDate=${format(end, 'yyyy-MM-dd')}`;
+        let url = `/api/appointments?startDate=${format(start, 'yyyy-MM-dd')}&endDate=${format(end, 'yyyy-MM-dd')}`;
+        if (clinicFilter !== 'all') {
+          url = `/api/appointments?clinicId=${clinicFilter}&startDate=${format(start, 'yyyy-MM-dd')}&endDate=${format(end, 'yyyy-MM-dd')}`;
+        }
         if (selectedDoctor !== 'all') {
           url += `&doctorId=${selectedDoctor}`;
         }
@@ -114,14 +120,15 @@ export default function CalendarPage() {
     return () => {
       cancelled = true;
     };
-  }, [view, currentDate, clinicId, selectedDoctor, refreshKey]);
+  }, [view, currentDate, clinicFilter, selectedDoctor, refreshKey]);
 
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
       try {
+        const clinicParam = clinicFilter === 'all' ? '' : `clinicId=${clinicFilter}&`;
         const res = await fetch(
-          `/api/users?clinicId=${clinicId}&role=GENERAL_DOCTOR&role=CLINIC_ADMIN`
+          `/api/users?${clinicParam}role=GENERAL_DOCTOR&role=CLINIC_ADMIN`
         );
         const data = await res.json();
         if (!cancelled) setDoctors(data.users || []);
@@ -133,7 +140,7 @@ export default function CalendarPage() {
     return () => {
       cancelled = true;
     };
-  }, [clinicId]);
+  }, [clinicFilter]);
 
   useEffect(() => {
     let cancelled = false;
@@ -158,8 +165,9 @@ export default function CalendarPage() {
     const load = async () => {
       setStatsLoading(true);
       try {
+        const clinicParam = clinicFilter === 'all' ? '' : `clinicId=${clinicFilter}&`;
         const res = await fetch(
-          `/api/appointments/stats?clinicId=${clinicId}&date=${format(selectedDate, 'yyyy-MM-dd')}`
+          `/api/appointments/stats?${clinicParam}date=${format(selectedDate, 'yyyy-MM-dd')}`
         );
         const data = await res.json();
         if (!cancelled && res.ok) {
@@ -176,7 +184,7 @@ export default function CalendarPage() {
     return () => {
       cancelled = true;
     };
-  }, [clinicId, selectedDate, refreshKey]);
+  }, [clinicFilter, selectedDate, refreshKey]);
 
   const refresh = useCallback(() => setRefreshKey((k) => k + 1), []);
 
@@ -505,6 +513,16 @@ export default function CalendarPage() {
                 </button>
               ))}
             </div>
+            <select
+              value={clinicFilter}
+              onChange={(e) => setClinicFilter(e.target.value as 'all' | 'clinic_a' | 'clinic_b')}
+              className="px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm border border-gray-200 rounded-md bg-white text-gray-700"
+              title="Filter by clinic"
+            >
+              <option value="all">All Clinics</option>
+              <option value="clinic_a">Kodambakkam</option>
+              <option value="clinic_b">Mylapore</option>
+            </select>
             <div className="flex gap-2 ml-auto">
               <button
                 onClick={handleWalkIn}

@@ -22,6 +22,7 @@ export const relationEnum = pgEnum('relation', [
 
 export const patients = table('patients', {
   patientId: text('patient_id').primaryKey().notNull(), // P-00001
+  practoPatientId: text('practo_patient_id'), // migration reference ID from Practo
   name: text('name').notNull(),
   gender: genderEnum('gender').notNull(),
   dateOfBirth: timestamp('date_of_birth', { withTimezone: true }),

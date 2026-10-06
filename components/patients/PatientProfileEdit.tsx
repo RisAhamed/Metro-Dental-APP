@@ -6,6 +6,7 @@ import { AutoTextarea } from './shared';
 
 export interface EditablePatient {
   patientId: string;
+  practoPatientId?: string | null;
   name: string;
   gender: string;
   dateOfBirth: string | null;
@@ -177,6 +178,7 @@ export function PatientProfileEdit({
 }: PatientProfileEditProps) {
   const [form, setForm] = useState({
     name: patient.name,
+    practoPatientId: patient.practoPatientId || '',
     gender: patient.gender,
     dateOfBirth: toDateInput(patient.dateOfBirth),
     age: patient.age?.toString() || '',
@@ -398,6 +400,12 @@ export function PatientProfileEdit({
                 <label className={labelCls}>Full Name *</label>
                 <input className={inputCls} value={form.name}
                   onChange={(e) => setField('name', e.target.value)} />
+              </div>
+              <div>
+                <label className={labelCls}>Practo Patient ID</label>
+                <input className={inputCls} value={form.practoPatientId}
+                  onChange={(e) => setField('practoPatientId', e.target.value)}
+                  placeholder="e.g. 18875 or M17866" />
               </div>
               <div>
                 <label className={labelCls}>Gender *</label>

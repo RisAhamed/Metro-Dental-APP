@@ -42,6 +42,7 @@ import { AppointmentModal } from '@/components/calendar/AppointmentModal';
 
 interface Patient {
   patientId: string;
+  practoPatientId?: string | null;
   name: string;
   gender: string;
   dateOfBirth: string | null;
@@ -812,6 +813,9 @@ export default function PatientProfilePage() {
                 <h1 className="text-xl sm:text-2xl font-bold text-gray-900 truncate">{patient.name}</h1>
                 <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mt-1">
                   <span className="text-xs sm:text-sm text-gray-500 truncate">{patient.patientId}</span>
+                  {patient.practoPatientId && (
+                    <span className="text-xs sm:text-sm text-gray-500 truncate">Practo ID: {patient.practoPatientId}</span>
+                  )}
                   <span
                     className={`px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-xs rounded-full flex-shrink-0 ${
                       patient.gender === 'MALE'

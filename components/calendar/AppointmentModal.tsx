@@ -112,6 +112,13 @@ export function AppointmentModal({
     endDate: '',
   });
 
+  // Clinic this booking belongs to — defaults to the user's primary clinic,
+  // but the user may book into either clinic. Categories/doctors/patient
+  // registration follow the selected clinic.
+  const [bookingClinicId, setBookingClinicId] = useState<string>(
+    appointment?.clinicId || clinicId
+  );
+
   const [categories, setCategories] = useState<Category[]>([]);
   const [localDoctors, setLocalDoctors] = useState<Doctor[]>([]);
   const allDoctors = doctors.length > 0 ? doctors : localDoctors;
@@ -140,7 +147,7 @@ export function AppointmentModal({
     let cancelled = false;
     const load = async () => {
       try {
-        const res = await fetch(`/api/appointment-categories?clinicId=${clinicId}`);
+        const res = await fetch(`/api/appointment-categories?clinicId=${bookingClinicId}`);
         const data = await res.json();
         if (!cancelled) setCategories(data.categories || []);
       } catch (error) {
@@ -151,7 +158,7 @@ export function AppointmentModal({
     return () => {
       cancelled = true;
     };
-  }, [clinicId]);
+  }, [bookingClinicId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -182,7 +189,7 @@ export function AppointmentModal({
     const load = async () => {
       try {
         const res = await fetch(
-          `/api/users?clinicId=${clinicId}&role=GENERAL_DOCTOR&role=CLINIC_ADMIN`
+          `/api/users?clinicId=${bookingClinicId}&role=GENERAL_DOCTOR&role=CLINIC_ADMIN`
         );
         const data = await res.json();
         if (!cancelled && data.users?.length > 0) setLocalDoctors(data.users);
@@ -194,7 +201,7 @@ export function AppointmentModal({
     return () => {
       cancelled = true;
     };
-  }, [clinicId, doctors.length]);
+  }, [bookingClinicId, doctors.length]);
 
   const handleSearchPatient = async (query: string) => {
     if (query.length < 2) {
@@ -339,7 +346,7 @@ export function AppointmentModal({
                   pincode: '',
                 }
               : null,
-            registeredClinicId: clinicId,
+            registeredClinicId: bookingClinicId,
           }),
         });
         const createData = await createRes.json();
@@ -367,7 +374,7 @@ export function AppointmentModal({
         ...form,
         appointmentDate: dateTime.toISOString(),
         doctorName: selectedDoctor?.name || form.doctorName,
-        clinicId,
+        clinicId: bookingClinicId,
         referralSourceId: form.referralSourceId || null,
         referralSubType: form.referralSubType || null,
       };
@@ -433,7 +440,7 @@ export function AppointmentModal({
 
     try {
       const payload = {
-        clinicId,
+        clinicId: bookingClinicId,
         title: reminder.title,
         doctorId: reminder.doctorId || null,
         doctorName: reminder.doctorId
@@ -684,6 +691,17 @@ export function AppointmentModal({
               )}
 
               <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Clinic *</label>
+                  <select
+                    value={bookingClinicId}
+                    onChange={(e) => setBookingClinicId(e.target.value)}
+                    className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
+                  >
+                    <option value="clinic_a">Kodambakkam</option>
+                    <option value="clinic_b">Mylapore</option>
+                  </select>
+                </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Doctor *</label>
                   <select

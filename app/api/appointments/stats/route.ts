@@ -18,8 +18,8 @@ export async function GET(req: NextRequest) {
   const clinicId = searchParams.get('clinicId');
   const dateStr = searchParams.get('date');
 
-  if (!clinicId || !dateStr) {
-    return NextResponse.json({ error: 'Missing required params: clinicId, date' }, { status: 400 });
+  if (!dateStr) {
+    return NextResponse.json({ error: 'Missing required params: date' }, { status: 400 });
   }
 
   try {
@@ -34,6 +34,7 @@ export async function GET(req: NextRequest) {
         patientName: appointments.patientName,
         doctorId: appointments.doctorId,
         doctorName: appointments.doctorName,
+        clinicId: appointments.clinicId,
         appointmentDate: appointments.appointmentDate,
         durationMinutes: appointments.durationMinutes,
         categoryId: appointments.categoryId,
@@ -52,7 +53,8 @@ export async function GET(req: NextRequest) {
       .leftJoin(patients, eq(appointments.patientId, patients.patientId))
       .where(
         and(
-          eq(appointments.clinicId, clinicId),
+          // clinicId is optional: omitted => stats across ALL clinics (universal calendar)
+          ...(clinicId ? [eq(appointments.clinicId, clinicId)] : []),
           gte(appointments.appointmentDate, dayStart),
           lt(appointments.appointmentDate, dayEnd),
           inArray(appointments.status, [...ACTIVE_STATUSES])

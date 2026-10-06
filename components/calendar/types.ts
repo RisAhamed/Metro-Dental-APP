@@ -4,6 +4,7 @@ export interface CalendarAppointment {
   patientName: string;
   doctorId: string;
   doctorName: string;
+  clinicId?: string | null;
   appointmentDate: string;
   durationMinutes: number;
   categoryId?: string | null;
