@@ -205,6 +205,7 @@ export default function InvoiceDetailPage() {
 
   const grandTotal = parseFloat(invoice.grandTotal) || 0;
   const balanceDue = Math.max(0, grandTotal - amountPaid);
+  const advanceCredit = Math.max(0, amountPaid - grandTotal);
   const calculatedStatus = amountPaid >= grandTotal ? 'PAID' : amountPaid > 0 ? 'PARTIALLY_PAID' : 'UNPAID';
   const hasChanges = amountPaid !== (parseFloat(invoice.amountPaid) || 0);
 
@@ -279,6 +280,14 @@ export default function InvoiceDetailPage() {
             </div>
           </div>
         </div>
+        {advanceCredit > 0 && (
+          <div className="mt-3 flex items-center justify-between rounded-md bg-green-50 px-3 py-2 text-sm">
+            <span className="font-medium text-green-700">Advance / Credit:</span>
+            <span className="font-bold text-green-700">
+              ₹{advanceCredit.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
+          </div>
+        )}
         {hasChanges && (
           <div className="mt-4 flex justify-end">
             <button

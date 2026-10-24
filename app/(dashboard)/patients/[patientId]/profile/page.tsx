@@ -233,6 +233,9 @@ export default function PatientProfilePage() {
   });
   const [visits, setVisits] = useState<VisitFull[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
+  const [ledgerInvoices, setLedgerInvoices] = useState<
+    Array<{ grandTotal: string; amountPaid: string }>
+  >([]);
   const [appointments, setAppointments] = useState<AppointmentRow[]>([]);
   const [timelineEntries, setTimelineEntries] = useState<TimelineEntry[]>([]);
   const [sectionLoading, setSectionLoading] = useState(false);
@@ -256,13 +259,15 @@ export default function PatientProfilePage() {
   useEffect(() => {
     const load = async () => {
       try {
-        const [patientRes, groupsRes] = await Promise.all([
+        const [patientRes, groupsRes, invoicesRes] = await Promise.all([
           fetch(`/api/patients/${patientId}`),
           fetch(`/api/patient-groups?clinicId=${clinicId}`),
+          fetch(`/api/patients/${patientId}/invoices`),
         ]);
 
         const patientData = await patientRes.json();
         const groupsData = await groupsRes.json();
+        const invoicesData = invoicesRes.ok ? await invoicesRes.json() : { invoices: [] };
 
         if (!patientRes.ok) {
           setNotFound(true);
@@ -270,6 +275,7 @@ export default function PatientProfilePage() {
           setPatient(patientData.patient);
         }
         setGroups(groupsData.groups || []);
+        setLedgerInvoices(invoicesData.invoices || []);
       } catch (error) {
         console.error('Error loading patient:', error);
         setNotFound(true);
@@ -487,6 +493,26 @@ export default function PatientProfilePage() {
         };
       });
   }, [visits]);
+
+  // Billing position. Invoices are the source of truth when the patient has any;
+  // the stored patient totals are only a fallback for legacy/visit-based billing.
+  const { headerDue, headerAdvance } = useMemo(() => {
+    if (ledgerInvoices.length > 0) {
+      let due = 0;
+      let credit = 0;
+      for (const inv of ledgerInvoices) {
+        const total = Number(inv.grandTotal || 0);
+        const paid = Number(inv.amountPaid || 0);
+        if (paid > total) credit += paid - total;
+        else due += total - paid;
+      }
+      return { headerDue: due, headerAdvance: credit };
+    }
+    return {
+      headerDue: Number(patient?.totalDue || 0),
+      headerAdvance: Number(patient?.advanceBalance || 0),
+    };
+  }, [ledgerInvoices, patient?.totalDue, patient?.advanceBalance]);
 
   const allFiles = useMemo(() => {
     const out = [];
@@ -831,15 +857,23 @@ export default function PatientProfilePage() {
                     <span className="text-xs sm:text-sm text-gray-500">• {patient.age} yrs</span>
                   )}
                 </div>
-                {Number(patient.totalDue || 0) > 0 && (
+                {headerAdvance > 0 && (
+                  <button
+                    onClick={() => setActiveSection('LEDGER')}
+                    className="mt-1.5 text-sm font-semibold text-green-600 hover:text-green-700 hover:underline"
+                  >
+                    Advance: ₹{headerAdvance.toFixed(2)} →
+                  </button>
+                )}
+                {headerAdvance === 0 && headerDue > 0 && (
                   <button
                     onClick={() => setActiveSection('LEDGER')}
                     className="mt-1.5 text-sm font-semibold text-red-600 hover:text-red-700 hover:underline"
                   >
-                    Due: ₹{Number(patient.totalDue || 0).toFixed(2)} →
+                    Due: ₹{headerDue.toFixed(2)} →
                   </button>
                 )}
-                {Number(patient.totalDue || 0) === 0 && (
+                {headerAdvance === 0 && headerDue === 0 && (
                   <p className="mt-1.5 text-sm font-semibold text-green-600">
                     All Paid ✓
                   </p>

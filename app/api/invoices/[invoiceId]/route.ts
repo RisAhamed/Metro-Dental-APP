@@ -7,7 +7,7 @@ import { patients } from '@/lib/db/schema/patients';
 import { clinics } from '@/lib/db/schema/clinics';
 import { users } from '@/lib/db/schema/users';
 import { canViewClinical, canManageClinical } from '@/lib/auth/claims';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 
 export async function GET(
   req: NextRequest,
@@ -72,8 +72,21 @@ export async function PUT(
     const grandTotal = parseFloat(invoice.grandTotal) || 0;
     const previousPaid = parseFloat(invoice.amountPaid) || 0;
     const newPaid = parseFloat(amountPaid) || 0;
+
+    if (!Number.isFinite(newPaid) || newPaid < 0) {
+      return NextResponse.json({ error: 'Amount paid must be a positive number' }, { status: 400 });
+    }
+
+    // Split the payment into what settles this invoice and what is credit (overpayment).
+    const previousApplied = Math.min(previousPaid, grandTotal);
+    const newApplied = Math.min(newPaid, grandTotal);
+    const previousOverpayment = Math.max(0, previousPaid - grandTotal);
+    const overpayment = Math.max(0, newPaid - grandTotal);
+
     const delta = newPaid - previousPaid;
-    
+    const deltaApplied = newApplied - previousApplied;
+    const deltaOverpayment = overpayment - previousOverpayment;
+
     let paymentStatus: Invoice['paymentStatus'] = 'UNPAID';
     if (newPaid >= grandTotal) paymentStatus = 'PAID';
     else if (newPaid > 0) paymentStatus = 'PARTIALLY_PAID';
@@ -99,9 +112,23 @@ export async function PUT(
       .set({
         amountPaid: newPaid.toString(),
         paymentStatus,
+        updatedAt: new Date(),
       })
       .where(eq(invoices.invoiceId, invoiceId))
       .returning();
+
+    // Keep the patient ledger in sync: settle due, bank any overpayment as credit.
+    if (delta !== 0 || deltaOverpayment !== 0) {
+      await db
+        .update(patients)
+        .set({
+          totalPaid: sql`GREATEST(COALESCE(${patients.totalPaid}, 0) + ${delta}, 0)`,
+          totalDue: sql`GREATEST(COALESCE(${patients.totalDue}, 0) - ${deltaApplied}, 0)`,
+          advanceBalance: sql`GREATEST(COALESCE(${patients.advanceBalance}, 0) + ${deltaOverpayment}, 0)`,
+          updatedAt: new Date(),
+        })
+        .where(eq(patients.patientId, invoice.patientId));
+    }
 
     return NextResponse.json({ invoice: result[0] });
   } catch (error) {

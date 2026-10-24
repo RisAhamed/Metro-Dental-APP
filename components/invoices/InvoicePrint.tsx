@@ -232,10 +232,16 @@ export const InvoicePrint = forwardRef<HTMLDivElement, InvoicePrintProps>(
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '0.75rem', fontWeight: 600 }}>
               <span className="text-gray-800">Balance Due:</span>
-              <span className="text-red-600">
-                {formatCurrency(Number(invoice.grandTotal) - Number(invoice.amountPaid))}
+              <span className={Number(invoice.amountPaid) > Number(invoice.grandTotal) ? 'text-green-600' : 'text-red-600'}>
+                {formatCurrency(Math.max(0, Number(invoice.grandTotal) - Number(invoice.amountPaid)))}
               </span>
             </div>
+            {Number(invoice.amountPaid) > Number(invoice.grandTotal) && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '0.75rem', fontWeight: 700 }} className="text-green-600">
+                <span>Advance / Credit:</span>
+                <span>{formatCurrency(Number(invoice.amountPaid) - Number(invoice.grandTotal))}</span>
+              </div>
+            )}
           </div>
         </div>
 

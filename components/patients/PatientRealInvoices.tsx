@@ -128,6 +128,7 @@ export function PatientRealInvoices({ patientId }: PatientRealInvoicesProps) {
                   ? editingAmounts[inv.invoiceId]
                   : parseFloat(inv.amountPaid) || 0;
                 const balanceDue = Math.max(0, grandTotal - currentPaid);
+                const credit = Math.max(0, currentPaid - grandTotal);
                 const computedStatus = currentPaid >= grandTotal ? 'PAID' : currentPaid > 0 ? 'PARTIALLY_PAID' : 'UNPAID';
                 const hasChanges = editingAmounts[inv.invoiceId] !== undefined;
 
@@ -166,8 +167,15 @@ export function PatientRealInvoices({ patientId }: PatientRealInvoicesProps) {
                         )}
                       </div>
                     </td>
-                    <td className={`px-3 py-2 text-sm text-right font-medium ${balanceDue > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                      ₹{balanceDue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    <td className="px-3 py-2 text-right">
+                      <div className={`text-sm font-medium ${balanceDue > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                        ₹{balanceDue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </div>
+                      {credit > 0 && (
+                        <div className="text-xs font-medium text-blue-600">
+                          Credit: ₹{credit.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </div>
+                      )}
                     </td>
                     <td className="px-3 py-2">
                       <span className={`px-2 py-0.5 text-xs rounded-full font-semibold ${statusBadge(hasChanges ? computedStatus : inv.paymentStatus)}`}>
