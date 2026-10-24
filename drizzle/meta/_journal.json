@@ -190,6 +190,13 @@
       "when": 1791302340685,
       "tag": "0026_add_practo_patient_id",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1792853881939,
+      "tag": "0027_add_digital_signature_to_prescriptions",
+      "breakpoints": true
     }
   ]
 }

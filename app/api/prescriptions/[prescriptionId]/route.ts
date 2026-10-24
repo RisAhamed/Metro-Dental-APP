@@ -98,6 +98,10 @@ export async function PUT(
         })),
         medicines,
         notes: body.notes !== undefined ? body.notes?.trim() || null : existing[0].notes,
+        hasDigitalSignature:
+          body.hasDigitalSignature !== undefined
+            ? body.hasDigitalSignature === true
+            : existing[0].hasDigitalSignature,
         updatedAt: new Date(),
       })
       .where(eq(prescriptions.prescriptionId, prescriptionId));

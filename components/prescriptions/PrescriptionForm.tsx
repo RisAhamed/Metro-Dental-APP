@@ -31,6 +31,7 @@ export interface EditablePrescription {
   medicines?: PrescriptionMedicine[];
   drugs?: PrescriptionDrug[];
   notes: string | null;
+  hasDigitalSignature?: boolean;
 }
 
 interface PrescriptionFormProps {
@@ -111,6 +112,9 @@ export function PrescriptionForm({
     return [emptyMedicine()];
   });
    const [notes, setNotes] = useState(() => initial?.notes || '');
+   const [hasDigitalSignature, setHasDigitalSignature] = useState(
+     () => initial?.hasDigitalSignature ?? false
+   );
    const [notesExpanded, setNotesExpanded] = useState(false);
    const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -151,6 +155,7 @@ export function PrescriptionForm({
         notes: notes.trim() || null,
         patientName,
         clinicId,
+        hasDigitalSignature,
       };
       const res = isEdit
         ? await fetch(`/api/prescriptions/${initial!.prescriptionId}`, {
@@ -275,6 +280,18 @@ export function PrescriptionForm({
         )}
 
         {error && <p className="px-3 pt-2 text-sm text-red-600">{error}</p>}
+
+        <div className="border-t border-gray-100 px-2 py-2">
+          <label className="inline-flex items-center gap-2 text-xs font-medium text-gray-700">
+            <input
+              type="checkbox"
+              checked={hasDigitalSignature}
+              onChange={(e) => setHasDigitalSignature(e.target.checked)}
+              className="h-3.5 w-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            Add Digital Signature
+          </label>
+        </div>
 
         <div className="flex justify-end gap-2 p-2">
           <button onClick={onCancel} className="rounded-md border border-gray-300 px-3 py-1.5 text-xs hover:bg-gray-50">Cancel</button>

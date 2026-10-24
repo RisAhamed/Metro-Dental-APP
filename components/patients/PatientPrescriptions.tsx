@@ -21,6 +21,7 @@ export interface PrescriptionEntry {
     instructions: string | null;
   }>;
   notes: string | null;
+  hasDigitalSignature?: boolean;
 }
 
 interface PatientPrescriptionsProps {
@@ -115,6 +116,7 @@ export function PatientPrescriptions({
                     medicines: editingRx.medicines,
                     drugs: editingRx.drugs,
                     notes: editingRx.notes,
+                    hasDigitalSignature: editingRx.hasDigitalSignature,
                   }
                 : null
             }

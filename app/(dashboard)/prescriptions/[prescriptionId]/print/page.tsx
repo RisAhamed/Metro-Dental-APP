@@ -47,6 +47,7 @@ export default async function PrescriptionPrintPage({
         date: rx.date.toISOString(),
         doctorName: rx.doctorName,
         notes: rx.notes,
+        hasDigitalSignature: rx.hasDigitalSignature,
         medicines: legacyMedicines(rx),
       }}
       patient={{

@@ -11,6 +11,7 @@ interface PrescriptionPrintProps {
     date: string;
     doctorName: string | null;
     notes: string | null;
+    hasDigitalSignature?: boolean;
     medicines: PrescriptionMedicine[];
   };
   patient: {
@@ -140,6 +141,11 @@ export function PrescriptionPrint({ prescription, patient, clinic }: Prescriptio
 
         <div className="mt-16 flex justify-end">
           <div className="text-center text-sm">
+            {prescription.hasDigitalSignature && prescription.doctorName && (
+              <div className="mb-1 text-sm text-gray-900">
+                Dr. {prescription.doctorName.replace(/^\s*dr\.?\s+/i, '').trim()}
+              </div>
+            )}
             <div className="mb-2 h-px w-56 bg-gray-400" />
             Doctor&apos;s Signature
           </div>

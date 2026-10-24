@@ -1,0 +1,1 @@
+ALTER TABLE "prescriptions" ADD COLUMN "has_digital_signature" boolean DEFAULT false NOT NULL;

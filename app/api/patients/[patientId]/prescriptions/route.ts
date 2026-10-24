@@ -131,6 +131,7 @@ export async function POST(
       })),
       medicines,
       notes: body.notes?.trim() || null,
+      hasDigitalSignature: body.hasDigitalSignature === true,
       createdBy: userId,
     });
 

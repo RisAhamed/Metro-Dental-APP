@@ -1,6 +1,6 @@
 import { cockroachTable as table } from './cockroachTable';
 import { sql } from 'drizzle-orm';
-import { text, timestamp, jsonb } from 'drizzle-orm/pg-core';
+import { text, timestamp, jsonb, boolean } from 'drizzle-orm/pg-core';
 
 export interface PrescriptionMedicine {
   drugName: string;
@@ -34,6 +34,7 @@ export const prescriptions = table('prescriptions', {
   >().notNull(),
   medicines: jsonb('medicines').$type<PrescriptionMedicine[]>().default(sql`'[]'::jsonb`).notNull(),
   notes: text('notes'),
+  hasDigitalSignature: boolean('has_digital_signature').default(false).notNull(),
   createdBy: text('created_by').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
