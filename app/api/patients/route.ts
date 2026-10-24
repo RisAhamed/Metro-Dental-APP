@@ -139,7 +139,8 @@ export async function GET(req: NextRequest) {
         or(
           ilike(patients.name, pattern),
           ilike(patients.patientId, pattern),
-          ilike(patients.primaryPhone, pattern)
+          ilike(patients.primaryPhone, pattern),
+          ilike(patients.practoPatientId, pattern)
         )
       );
     }
